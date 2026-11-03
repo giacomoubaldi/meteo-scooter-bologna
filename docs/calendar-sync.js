@@ -4,12 +4,22 @@ let calendar=[];
 try{const x=JSON.parse(localStorage.getItem(calKey)||"[]");if(Array.isArray(x))calendar=x}catch(e){}
 let editingTrip=null,sessionToken=null,syncTimer=null;
 function renderCalendarSelectors(){
+ const fav=$("calFavorite"),selected=fav.value;
+ fav.replaceChildren();
+ const empty=document.createElement("option");empty.value="";empty.textContent="Scegli un percorso salvato…";fav.append(empty);
+ favorites.forEach((route,i)=>{if(!regions[route.from]||!regions[route.to])return;const o=document.createElement("option");o.value=String(i);o.textContent=route.from+" → "+route.to;fav.append(o)});
+ if(selected&&[...fav.options].some(o=>o.value===selected))fav.value=selected;
+
  for(const id of ["calFrom","calTo"]){
   const el=$(id),old=el.value;el.replaceChildren();
   Object.keys(regions).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;el.append(o)});
   el.value=regions[old]?old:id==="calFrom"?"casa":"fisica";
  }
 }
+$("calFavorite").onchange=()=>{
+ const item=favorites[Number($("calFavorite").value)];
+ if($("calFavorite").value!==""&&item){$("calFrom").value=item.from;$("calTo").value=item.to}
+};
 weekdays.forEach((name,i)=>{const o=document.createElement("option");o.value=i;o.textContent=name;$("calDay").append(o)});
 function persistCalendar(){localStorage.setItem(calKey,JSON.stringify(calendar));renderCalendar();queueSync()}
 function renderCalendar(){
@@ -59,7 +69,7 @@ function applyConfig(data){
  localStorage.setItem("regionsScooter",JSON.stringify(regions));
  localStorage.setItem(favoritesKey,JSON.stringify(favorites));
  localStorage.setItem(calKey,JSON.stringify(calendar));
- render();renderFavorites();renderCalendar();
+ render();renderFavorites();renderCalendarSelectors();renderCalendar();
  loadingRemote=false;dirty=false;
 }
 async function loadConfig(){
