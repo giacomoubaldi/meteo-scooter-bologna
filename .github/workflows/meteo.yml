@@ -1,0 +1,23 @@
+name: Meteo scooter serale
+on:
+  schedule:
+    - cron: '0 19 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+jobs:
+  mail:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Invia previsioni
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          MAIL_TO: giacomoubaldi@gmail.com
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
+        run: python send_email.py
