@@ -8,7 +8,7 @@ body{max-width:850px;margin:auto;padding:24px 16px}h1{font-size:2rem}
 label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #53647e;background:#102039;color:white;width:100%;box-sizing:border-box}
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-title{margin:16px 0 8px}
-.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;overflow-x:auto;padding-bottom:10px}.calendar-day{min-width:110px;background:#102039;border-radius:10px;padding:8px}.calendar-day h4{margin:2px 0 10px}.calendar-trip{background:#265780;border-radius:8px;padding:7px;margin:6px 0;font-size:12px;overflow-wrap:anywhere}.calendar-trip button{width:auto;padding:4px 7px;margin:5px 3px 0 0;font-size:12px}.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:670px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(5){white-space:normal}}
 </style></head><body>
@@ -20,6 +20,13 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px
 <div><label>Data</label><input id="date" type="date"></div>
 <div><label>Ora</label><input id="time" type="time" value="09:00"></div>
 </div><div class="actions"><button id="go">Calcola</button><button id="swap" type="button" title="Inverti partenza e arrivo" aria-label="Inverti partenza e arrivo">⇄</button></div><button id="saveFavorite" class="save-favorite" type="button">⭐ Aggiungi ai preferiti</button><div id="favoriteSection"><h3 class="favorite-title">⭐ Percorsi preferiti</h3><div id="favorites" class="favorites"></div></div><div id="result" aria-live="polite"></div></section>
+<details class="card saved-stops"><summary>📅 Calendario</summary>
+<p><small>Tragitti settimanali ricorrenti. Per sincronizzare telefono, browser ed email, accedi al database qui sotto.</small></p>
+<div id="calendar" class="calendar"></div>
+<div class="grid"><div><label>Giorno</label><select id="calDay"></select></div><div><label>Ora</label><input id="calTime" type="time" value="09:00"></div><div><label>Da</label><select id="calFrom"></select></div><div><label>A</label><select id="calTo"></select></div></div>
+<button id="calSave">Aggiungi tragitto</button><button id="calCancel" type="button" hidden>Annulla modifica</button>
+</details>
+<details class="card saved-stops"><summary>☁️ Sincronizzazione</summary><p><small>Accedi con il tuo account per condividere tappe, preferiti e calendario tra dispositivi. La configurazione Supabase deve essere completata prima dell'uso.</small></p><label>Email</label><input id="syncEmail" type="email" autocomplete="username"><label>Password</label><input id="syncPassword" type="password" autocomplete="current-password"><button id="syncLogin">Accedi e sincronizza</button><button id="syncLogout" hidden>Esci</button><p id="syncStatus" aria-live="polite">Sincronizzazione non configurata.</p></details>
 <details class="card saved-stops"><summary>📍 Tappe salvate</summary><div id="regions"></div>
 <label>Nome nuova tappa</label><input id="name" placeholder="piscina">
 <label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
@@ -33,7 +40,7 @@ const $=id=>document.getElementById(id);
 const favoritesKey="favoriteRoutesScooter";
 let favorites=[];
 try{const stored=JSON.parse(localStorage.getItem(favoritesKey)||"[]");if(Array.isArray(stored))favorites=stored.filter(x=>x&&typeof x.from==="string"&&typeof x.to==="string")}catch(e){favorites=[]}
-function saveFavorites(){localStorage.setItem(favoritesKey,JSON.stringify(favorites))}
+function saveFavorites(){localStorage.setItem(favoritesKey,JSON.stringify(favorites));queueSync()}
 function renderFavorites(){
  const list=$("favorites");list.replaceChildren();
  $("favoriteSection").hidden=!favorites.length;
@@ -66,6 +73,7 @@ function render(){
  }
  $("regions").replaceChildren();
  for(let [k,v] of Object.entries(regions)){let p=document.createElement("p");p.textContent=k+": "+v;$("regions").append(p)}
+ renderCalendarSelectors();
 }
 $("date").value=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Rome",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 render();
@@ -168,7 +176,7 @@ function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
 $("add").onclick=async()=>{
  let k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
  if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){alert("Inserisci nome e indirizzo della tappa");return}
- try{await geo(v);regions[k]=v;localStorage.setItem("regionsScooter",JSON.stringify(regions));render();$("name").value="";$("address").value=""}
+ try{await geo(v);regions[k]=v;localStorage.setItem("regionsScooter",JSON.stringify(regions));render();queueSync();$("name").value="";$("address").value=""}
  catch(e){alert(e.message)}
 };
 $("go").onclick=async()=>{
@@ -202,4 +210,4 @@ $("go").onclick=async()=>{
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
-</script></body></html>
+</script><script src="sync-config.js"></script><script src="calendar-sync.js"></script></body></html>
