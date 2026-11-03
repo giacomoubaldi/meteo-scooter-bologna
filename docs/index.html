@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meteo Scooter Bologna</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#edf5ff;background:#0b1424}
+body{max-width:850px;margin:auto;padding:24px 16px}h1{font-size:2rem}
+.card{background:#17273d;padding:24px;border-radius:18px;margin:18px 0;box-shadow:0 8px 28px #0003}
+label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #53647e;background:#102039;color:white;width:100%;box-sizing:border-box}
+button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #41516a}
+@media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}}
+</style></head><body>
+<h1>🛵 Meteo Scooter Bologna</h1>
+<p>Previsioni lungo il tragitto: partenza, metà percorso e arrivo, con controllo delle partenze ±30 minuti.</p>
+<section class="card"><h2>🌦️ Consulta il meteo</h2><div class="grid">
+<div><label>Da</label><select id="from"></select></div>
+<div><label>A</label><select id="to"></select></div>
+<div><label>Data</label><input id="date" type="date"></div>
+<div><label>Ora</label><input id="time" type="time" value="09:00"></div>
+</div><button id="go">Calcola</button><div id="result" aria-live="polite"></div></section>
+<section class="card"><h2>📍 Regioni salvate</h2><div id="regions"></div>
+<label>Nome nuova regione</label><input id="name" placeholder="piscina">
+<label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
+<button id="add">Aggiungi regione</button>
+<p><small>Le regioni aggiunte restano in questo browser; l'email automatica usa Casa e Fisica.</small></p></section>
+<p><small>Fonti: Open-Meteo, OpenStreetMap/Nominatim e OSRM. Stime, non radar in tempo reale. Durata scooter: 25 km/h + 3 min.</small></p>
+<script>
+const defaults={casa:"Via Alceste Giovannini, Bologna, Italia",fisica:"Via Irnerio 46, Bologna, Italia",ingegneria:"Viale del Risorgimento 2, Bologna, Italia"};
+let regions={...defaults,...JSON.parse(localStorage.getItem("regionsScooter")||"{}")};
+const $=id=>document.getElementById(id);
+function render(){
+ for(const id of ["from","to"]){
+  let old=$(id).value;$(id).replaceChildren();
+  for(let k of Object.keys(regions)){let option=document.createElement("option");option.value=k;option.textContent=k;$(id).append(option)}
+  $(id).value=regions[old]?old:id==="from"?"casa":"fisica";
+ }
+ $("regions").replaceChildren();
+ for(let [k,v] of Object.entries(regions)){let p=document.createElement("p");p.textContent=k+": "+v;$("regions").append(p)}
+}
+$("date").value=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Rome",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+render();
+async function api(url){let r=await fetch(url);if(!r.ok)throw Error("Servizio non disponibile: "+r.status);return r.json()}
+async function geo(address){
+ let d=await api("https://nominatim.openstreetmap.org/search?"+new URLSearchParams({q:address,format:"json",limit:1}));
+ if(!d.length)throw Error("Indirizzo non trovato");
+ return [+d[0].lat,+d[0].lon];
+}
+function dist(a,b){
+ let r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r;
+ return 12742000*Math.asin(Math.sqrt(Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2));
+}
+function mid(c){
+ let ds=c.slice(1).map((p,i)=>dist(c[i],p)),half=ds.reduce((a,b)=>a+b,0)/2,seen=0;
+ for(let i=0;i<ds.length;i++){
+  if(seen+ds[i]>=half){
+   let f=ds[i]?(half-seen)/ds[i]:0;
+   return c[i].map((v,k)=>v+(c[i+1][k]-v)*f);
+  }
+  seen+=ds[i];
+ }
+ return c.at(-1);
+}
+function interp(times,vals,m){
+ if(!times||!vals)return null;
+ let t=times.map(s=>Date.parse(s+"Z")/60000);
+ if(m<t[0]||m>t.at(-1))return null;
+ for(let i=0;i<t.length-1;i++)if(t[i]<=m&&m<=t[i+1]){
+  if(vals[i]==null||vals[i+1]==null)return null;
+  return vals[i]+(vals[i+1]-vals[i])*(m-t[i])/(t[i+1]-t[i]);
+ }
+ return vals.at(-1);
+}
+function sample(data,m){
+ let h=data.hourly;
+ return {prob:interp(h.time,h.precipitation_probability,m),rain:interp(h.time,h.precipitation,m),temp:interp(h.time,h.temperature_2m,m),wind:interp(h.time,h.wind_speed_10m,m)};
+}
+function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
+$("add").onclick=async()=>{
+ let k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
+ if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){alert("Inserisci nome e indirizzo");return}
+ try{await geo(v);regions[k]=v;localStorage.setItem("regionsScooter",JSON.stringify(regions));render();$("name").value="";$("address").value=""}
+ catch(e){alert(e.message)}
+};
+$("go").onclick=async()=>{
+ let out=$("result");out.textContent="Calcolo percorso e previsioni…";
+ try{
+  let a=await geo(regions[$("from").value]),b=await geo(regions[$("to").value]);
+  let route=(await api("https://router.project-osrm.org/route/v1/driving/"+a[1]+","+a[0]+";"+b[1]+","+b[0]+"?overview=full&geometries=geojson")).routes[0];
+  let coords=route.geometry.coordinates.map(x=>[x[1],x[0]]),points=[a,mid(coords),b];
+  let duration=Math.max(3,route.distance/1000/25*60+3);
+  let base=Date.parse($("date").value+"T"+$("time").value+":00Z")/60000;
+  let first=new Date((base-30)*60000).toISOString().slice(0,10);
+  let last=new Date((base+duration+30)*60000).toISOString().slice(0,10);
+  let weather=await Promise.all(points.map(p=>api("https://api.open-meteo.com/v1/forecast?"+new URLSearchParams({
+   latitude:p[0],longitude:p[1],hourly:"precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
+   timezone:"Europe/Rome",start_date:first,end_date:last
+  }))));
+  let rows=points.map((p,i)=>{
+   let m=base+duration*i/2;
+   return {name:["Partenza","Metà percorso","Arrivo"][i],time:new Date(m*60000).toISOString().slice(11,16),
+    nominal:sample(weather[i],m),variants:[-30,0,30].map(off=>sample(weather[i],m+off))};
+  });
+  let all=rows.flatMap(x=>x.variants);
+  let max=k=>{let v=all.map(x=>x[k]).filter(x=>x!=null);return v.length?Math.max(...v):null};
+  let prob=max("prob"),rain=max("rain"),wind=max("wind");
+  let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
+  out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
+   +"<table><tr><th>Punto</th><th>Ora</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
+   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
+   +"</table><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
+ }catch(e){out.textContent="Errore: "+e.message}
+};
+</script></body></html>
