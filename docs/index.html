@@ -100,9 +100,29 @@ function interp(times,vals,m){
  }
  return vals.at(-1);
 }
+function weatherLabel(code){
+ if(code==null)return "❔ n.d.";
+ const c=Math.round(code);
+ if(c===0)return "☀️ Sereno";
+ if(c===1)return "🌤️ Prevalentemente sereno";
+ if(c===2)return "⛅ Parzialmente nuvoloso";
+ if(c===3)return "☁️ Coperto";
+ if(c===45||c===48)return "🌫️ Nebbia";
+ if([51,53,55,56,57].includes(c))return "🌦️ Pioviggine";
+ if([61,63,65,66,67,80,81,82].includes(c))return "🌧️ Pioggia";
+ if([71,73,75,77,85,86].includes(c))return "🌨️ Neve";
+ if([95,96,99].includes(c))return "⛈️ Temporale";
+ return "❔ Variabile";
+}
+function nearestWeatherCode(times,codes,m){
+ if(!times||!codes||!times.length)return null;
+ let best=-1,diff=Infinity;
+ times.forEach((t,i)=>{const d=Math.abs(Date.parse(t+"Z")/60000-m);if(d<diff){diff=d;best=i}});
+ return diff<=60?codes[best]:null;
+}
 function sample(data,m){
  let h=data.hourly;
- return {prob:interp(h.time,h.precipitation_probability,m),rain:interp(h.time,h.precipitation,m),temp:interp(h.time,h.temperature_2m,m),wind:interp(h.time,h.wind_speed_10m,m)};
+ return {code:nearestWeatherCode(h.time,h.weather_code,m),prob:interp(h.time,h.precipitation_probability,m),rain:interp(h.time,h.precipitation,m),temp:interp(h.time,h.temperature_2m,m),wind:interp(h.time,h.wind_speed_10m,m)};
 }
 function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
 $("add").onclick=async()=>{
@@ -122,7 +142,7 @@ $("go").onclick=async()=>{
   let first=new Date((base-30)*60000).toISOString().slice(0,10);
   let last=new Date((base+duration+30)*60000).toISOString().slice(0,10);
   let weather=await Promise.all(points.map(p=>api("https://api.open-meteo.com/v1/forecast?"+new URLSearchParams({
-   latitude:p[0],longitude:p[1],hourly:"precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
+   latitude:p[0],longitude:p[1],hourly:"weather_code,precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
    timezone:"Europe/Rome",start_date:first,end_date:last
   }))));
   let rows=points.map((p,i)=>{
@@ -135,7 +155,7 @@ $("go").onclick=async()=>{
   let prob=max("prob"),rain=max("rain"),wind=max("wind");
   let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
   out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
-   +"<table><tr><th>Punto</th><th>Ora</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
+   +"<table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
    +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
    +"</table><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
  }catch(e){out.textContent="Errore: "+e.message}
