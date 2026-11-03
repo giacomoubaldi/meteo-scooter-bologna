@@ -38,48 +38,45 @@ $("calSave").onclick=()=>{
  resetEdit();persistCalendar();
 };
 renderCalendar();
-const syncUrl=window.SCOOTER_SUPABASE_URL?.replace(/\/$/,""),syncKey=window.SCOOTER_SUPABASE_ANON_KEY;
-const configured=Boolean(syncUrl&&syncKey);
-const status=msg=>$("syncStatus").textContent=msg;
-if(configured)status("Accedi per sincronizzare i dati.");
-async function sb(path,method="GET",body=null,token=syncKey){
- const response=await fetch(syncUrl+path,{method,headers:{"apikey":syncKey,"Authorization":"Bearer "+token,"Content-Type":"application/json",...(method==="POST"?{"Prefer":"resolution=merge-duplicates,return=minimal"}:{})},...(body?{body:JSON.stringify(body)}:{})});
- const data=await response.json().catch(()=>null);
- if(!response.ok)throw Error(data?.msg||data?.message||data?.error_description||"Errore database "+response.status);
- return data;
+
+const apiFile="https://api.github.com/repos/giacomoubaldi/meteo-scooter-bologna/contents/data/config.json";
+let remoteSha=null,dirty=false,loadingRemote=false;
+function queueSync(){if(!loadingRemote){dirty=true;$("syncStatus").textContent="Modifiche da salvare: premi Commit and Reload."}}
+function b64Encode(value){return btoa(Array.from(new TextEncoder().encode(value),b=>String.fromCharCode(b)).join(""))}
+function b64Decode(value){return new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\\s/g,"")),c=>c.charCodeAt(0)))}
+async function getConfig(){
+ const r=await fetch(apiFile+"?nocache="+Date.now(),{cache:"no-store"});
+ if(!r.ok)throw Error("Lettura GitHub: HTTP "+r.status);
+ const file=await r.json();
+ return {sha:file.sha,data:JSON.parse(b64Decode(file.content))};
 }
-let currentUser=null;
-async function loadCloud(){
- const data=await sb("/rest/v1/scooter_settings?select=payload&user_id=eq."+encodeURIComponent(currentUser), "GET",null,sessionToken);
- if(data.length){
-  const payload=data[0].payload;
-  if(payload?.regions&&typeof payload.regions==="object")regions={...defaults,...payload.regions};
-  if(Array.isArray(payload?.favorites))favorites=payload.favorites;
-  if(Array.isArray(payload?.calendar))calendar=payload.calendar;
-  localStorage.setItem("regionsScooter",JSON.stringify(regions));
-  localStorage.setItem(favoritesKey,JSON.stringify(favorites));
-  localStorage.setItem(calKey,JSON.stringify(calendar));
-  render();renderFavorites();renderCalendar();
- }else await uploadCloud();
+function applyConfig(data){
+ loadingRemote=true;
+ regions={...defaults,...(data.tappe||{})};
+ favorites=Array.isArray(data.favorites)?data.favorites:[];
+ calendar=Array.isArray(data.calendar)?data.calendar:[];
+ localStorage.setItem("regionsScooter",JSON.stringify(regions));
+ localStorage.setItem(favoritesKey,JSON.stringify(favorites));
+ localStorage.setItem(calKey,JSON.stringify(calendar));
+ render();renderFavorites();renderCalendar();
+ loadingRemote=false;dirty=false;
 }
-async function uploadCloud(){
- if(!currentUser||!sessionToken)return;
- await sb("/rest/v1/scooter_settings?on_conflict=user_id","POST",{user_id:currentUser,payload:{regions,favorites,calendar}},sessionToken);
- status("☁️ Dati sincronizzati.");
+async function loadConfig(){
+ try{const {sha,data}=await getConfig();remoteSha=sha;applyConfig(data);$("syncStatus").textContent="Dati caricati da GitHub."}
+ catch(e){$("syncStatus").textContent="Caricamento non riuscito: "+e.message}
 }
-function queueSync(){
- if(!currentUser)return;
- status("Sincronizzazione in corso…");
- clearTimeout(syncTimer);syncTimer=setTimeout(()=>uploadCloud().catch(e=>status("Errore sincronizzazione: "+e.message)),600);
-}
-$("syncLogin").onclick=async()=>{
- if(!configured){status("Configura Supabase in sync-config.js.");return}
+$("commitReload").onclick=async()=>{
+ const token=$("githubToken").value.trim();
+ if(!token){$("syncStatus").textContent="Inserisci il token GitHub per salvare.";return}
+ const button=$("commitReload");button.disabled=true;
  try{
-  const data=await sb("/auth/v1/token?grant_type=password","POST",{email:$("syncEmail").value,password:$("syncPassword").value});
-  sessionToken=data.access_token;currentUser=data.user.id;
-  $("syncPassword").value="";
-  await loadCloud();
-  $("syncLogout").hidden=false;status("☁️ Account collegato. Modifiche sincronizzate.");
- }catch(e){status("Accesso non riuscito: "+e.message)}
+  const latest=await getConfig();
+  if(latest.sha!==remoteSha)throw Error("Modifiche effettuate da un altro dispositivo: ricarica la pagina prima di salvare.");
+  const payload={tappe:regions,favorites,calendar};
+  const r=await fetch(apiFile,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({message:"Update scooter calendar, stops and favorites",content:b64Encode(JSON.stringify(payload,null,2)+"\\n"),sha:latest.sha,branch:"main"})});
+  if(!r.ok)throw Error("Commit non riuscito: HTTP "+r.status);
+  $("githubToken").value="";
+  location.reload();
+ }catch(e){$("syncStatus").textContent=e.message;button.disabled=false}
 };
-$("syncLogout").onclick=()=>{sessionToken=null;currentUser=null;$("syncLogout").hidden=true;status("Disconnesso.")};
+loadConfig();
