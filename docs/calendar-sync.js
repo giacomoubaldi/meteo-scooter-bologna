@@ -37,6 +37,7 @@ $("calSave").onclick=()=>{
  if(editingTrip)calendar=calendar.map(t=>t.id===editingTrip?trip:t);else calendar.push(trip);
  resetEdit();persistCalendar();
 };
+renderCalendarSelectors();
 renderCalendar();
 
 const apiFile="https://api.github.com/repos/giacomoubaldi/meteo-scooter-bologna/contents/data/config.json";
