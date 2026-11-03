@@ -3,12 +3,18 @@ import datetime as dt
 import html
 import os
 import smtplib
+import json
+import urllib.request
+import urllib.parse
 from email.message import EmailMessage
 from meteo_core import TZ, REGIONS, evaluate, advice
 
 def trip(title, origin, destination, time, day):
     departure = dt.datetime.combine(day, dt.time.fromisoformat(time), tzinfo=TZ)
     result = evaluate(REGIONS[origin], REGIONS[destination], departure)
+    return trip_result(title, origin, destination, time, result)
+
+def trip_result(title, origin, destination, time, result):
     def fmt(value, unit="", digits=0):
         return "n.d." if value is None else f"{value:.{digits}f}{unit}"
     rows = "".join(
@@ -31,14 +37,54 @@ def trip(title, origin, destination, time, day):
         f"<p><strong>{html.escape(advice(result))}</strong></p>"
     )
 
+def calendar_trips(day):
+    """Read the same private weekly calendar as the web app, via Supabase Auth."""
+    url = os.environ.get("SCOOTER_SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SCOOTER_SUPABASE_ANON_KEY", "")
+    email = os.environ.get("SCOOTER_EMAIL", "")
+    password = os.environ.get("SCOOTER_PASSWORD", "")
+    if not all((url, key, email, password)):
+        raise RuntimeError("Configurazione calendario Supabase incompleta: email non inviata.")
+    req = urllib.request.Request(
+        url + "/auth/v1/token?grant_type=password",
+        data=json.dumps({"email": email, "password": password}).encode(),
+        headers={"apikey": key, "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as response:
+        auth = json.load(response)
+    user_id = auth["user"]["id"]
+    req = urllib.request.Request(
+        url + "/rest/v1/scooter_settings?select=payload&user_id=eq." + urllib.parse.quote(user_id),
+        headers={"apikey": key, "Authorization": "Bearer " + auth["access_token"]},
+    )
+    with urllib.request.urlopen(req, timeout=30) as response:
+        rows = json.load(response)
+    payload = rows[0]["payload"] if rows else {}
+    regions = {**REGIONS, **payload.get("regions", {})}
+    trips = sorted(
+        (t for t in payload.get("calendar", []) if t.get("day") == day.weekday()),
+        key=lambda t: t.get("time", ""),
+    )
+    return regions, trips
+
 def main():
     now = dt.datetime.now(TZ)
     if os.getenv("SCHEDULED") == "true" and now.hour != 21:
         print("Non sono le 21 in Italia: nessuna email.")
         return
     tomorrow = (now + dt.timedelta(days=1)).date()
-    body = trip("🏠 Andata", "casa", "fisica", "09:00", tomorrow)
-    body += trip("🔬 Ritorno", "fisica", "casa", "18:30", tomorrow)
+    regions, planned = calendar_trips(tomorrow)
+    body = ""
+    for item in planned:
+        origin, destination = item["from"], item["to"]
+        if origin not in regions or destination not in regions:
+            raise ValueError("Tappa non presente nel calendario: " + origin + " / " + destination)
+        departure = dt.datetime.combine(tomorrow, dt.time.fromisoformat(item["time"]), tzinfo=TZ)
+        result = evaluate(regions[origin], regions[destination], departure)
+        body += trip_result(f"{origin} → {destination}", origin, destination, item["time"], result)
+    if not planned:
+        body = "<p>Nessun tragitto previsto nel calendario per domani.</p>"
     sender = os.environ["GMAIL_USER"]
     password = os.environ["GMAIL_APP_PASSWORD"]
     message = EmailMessage()
