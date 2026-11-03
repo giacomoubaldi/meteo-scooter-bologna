@@ -69,9 +69,15 @@ function render(){
 }
 $("date").value=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Rome",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 render();
-async function api(url){let r=await fetch(url);if(!r.ok)throw Error("Servizio non disponibile: "+r.status);return r.json()}
+async function api(url,service="Servizio esterno"){
+ let r;
+ try{r=await fetch(url,{headers:{Accept:"application/json"}})}
+ catch(e){throw Error(service+": connessione non riuscita. Riprova tra qualche minuto o verifica la connessione e gli eventuali blocchi del browser.")}
+ if(!r.ok)throw Error(service+": risposta HTTP "+r.status);
+ try{return await r.json()}catch(e){throw Error(service+": risposta non valida")}
+}
 async function geo(address){
- let d=await api("https://nominatim.openstreetmap.org/search?"+new URLSearchParams({q:address,format:"json",limit:1}));
+ let d=await api("https://nominatim.openstreetmap.org/search?"+new URLSearchParams({q:address,format:"json",limit:1}),"Nominatim (ricerca indirizzi)");
  if(!d.length)throw Error("Indirizzo non trovato");
  return [+d[0].lat,+d[0].lon];
 }
@@ -135,7 +141,7 @@ $("go").onclick=async()=>{
  let out=$("result");out.textContent="Calcolo percorso e previsioni…";
  try{
   let a=await geo(regions[$("from").value]),b=await geo(regions[$("to").value]);
-  let route=(await api("https://router.project-osrm.org/route/v1/driving/"+a[1]+","+a[0]+";"+b[1]+","+b[0]+"?overview=full&geometries=geojson")).routes[0];
+  let route=(await api("https://router.project-osrm.org/route/v1/driving/"+a[1]+","+a[0]+";"+b[1]+","+b[0]+"?overview=full&geometries=geojson","OSRM (calcolo percorso)")).routes[0];
   let coords=route.geometry.coordinates.map(x=>[x[1],x[0]]),points=[a,mid(coords),b];
   let duration=Math.max(3,route.distance/1000/25*60+3);
   let base=Date.parse($("date").value+"T"+$("time").value+":00Z")/60000;
@@ -144,7 +150,7 @@ $("go").onclick=async()=>{
   let weather=await Promise.all(points.map(p=>api("https://api.open-meteo.com/v1/forecast?"+new URLSearchParams({
    latitude:p[0],longitude:p[1],hourly:"weather_code,precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
    timezone:"Europe/Rome",start_date:first,end_date:last
-  }))));
+  }),"Open-Meteo (previsioni)")));
   let rows=points.map((p,i)=>{
    let m=base+duration*i/2;
    return {name:["Partenza","Metà percorso","Arrivo"][i],time:new Date(m*60000).toISOString().slice(11,16),
