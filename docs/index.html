@@ -9,8 +9,8 @@ label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:1
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-title{margin:16px 0 8px}
 .saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
-table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #41516a}
-@media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:590px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(4){white-space:normal}}
 </style></head><body>
 <h1>🛵 Meteo Scooter Bologna</h1>
 <p>Previsioni lungo il tragitto: partenza, metà percorso e arrivo, con controllo delle partenze ±30 minuti.</p>
@@ -120,6 +120,10 @@ function weatherLabel(code){
  if([95,96,99].includes(c))return "⛈️ Temporale";
  return "❔ Variabile";
 }
+function weatherCell(code){
+ const label=weatherLabel(code),space=label.indexOf(" "),icon=space<0?label:label.slice(0,space),description=space<0?"":label.slice(space+1);
+ return '<span class="weather-cell" title="'+label+'"><span class="weather-icon">'+icon+'</span> <span class="weather-full">'+description+'</span><span class="weather-short"></span></span>';
+}
 function nearestWeatherCode(times,codes,m){
  if(!times||!codes||!times.length)return null;
  let best=-1,diff=Infinity;
@@ -161,9 +165,9 @@ $("go").onclick=async()=>{
   let prob=max("prob"),rain=max("rain"),wind=max("wind");
   let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
   out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
-   +"<table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
-   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherLabel(x.nominal.code)+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
-   +"</table><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
+   +"<div class=\"forecast-table\"><table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
+   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
+   +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
 </script></body></html>
