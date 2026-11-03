@@ -73,7 +73,7 @@ $("commitReload").onclick=async()=>{
   const latest=await getConfig();
   if(latest.sha!==remoteSha)throw Error("Modifiche effettuate da un altro dispositivo: ricarica la pagina prima di salvare.");
   const payload={tappe:regions,favorites,calendar};
-  const r=await fetch(apiFile,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({message:"Update scooter calendar, stops and favorites",content:b64Encode(JSON.stringify(payload,null,2)+"\\n"),sha:latest.sha,branch:"main"})});
+  const r=await fetch(apiFile,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({message:"Update scooter calendar, stops and favorites",content:b64Encode(JSON.stringify(payload,null,2)),sha:latest.sha,branch:"main"})});
   if(!r.ok)throw Error("Commit non riuscito: HTTP "+r.status);
   $("githubToken").value="";
   location.reload();
