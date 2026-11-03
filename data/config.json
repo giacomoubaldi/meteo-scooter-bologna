@@ -57,6 +57,20 @@
       "time": "09:00",
       "from": "casa",
       "to": "fisica"
+    },
+    {
+      "id": "bc6a53f0-0a99-4983-89f8-be83f49a0cab",
+      "day": 1,
+      "time": "18:00",
+      "from": "fisica",
+      "to": "casa"
+    },
+    {
+      "id": "059d1282-7f22-4eb0-bf1a-0b81d8232107",
+      "day": 2,
+      "time": "18:00",
+      "from": "fisica",
+      "to": "casa"
     }
   ]
 }
