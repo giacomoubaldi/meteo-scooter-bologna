@@ -71,6 +71,13 @@
       "time": "18:00",
       "from": "fisica",
       "to": "casa"
+    },
+    {
+      "id": "1dd8cb4d-cb85-405f-b1b2-3221a677c58b",
+      "day": 3,
+      "time": "10:45",
+      "from": "fisica",
+      "to": "ingegneria"
     }
   ]
 }
