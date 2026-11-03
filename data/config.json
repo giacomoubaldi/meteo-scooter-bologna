@@ -2,7 +2,9 @@
   "tappe": {
     "casa": "Via Alceste Giovannini, Bologna, Italia",
     "fisica": "Via Irnerio 46, Bologna, Italia",
-    "ingegneria": "Viale del Risorgimento 2, Bologna, Italia"
+    "ingegneria": "Viale del Risorgimento 2, Bologna, Italia",
+    "piscina": "Via di Corticella 180/4, Bologna, Italia",
+    "teatro": "Via Castiglione, 41, 40124 Bologna BO"
   },
   "favorites": [
     {
@@ -78,6 +80,55 @@
       "time": "10:45",
       "from": "fisica",
       "to": "ingegneria"
+    },
+    {
+      "id": "db8b1858-a044-4bc0-9934-11020cfeba3a",
+      "day": 0,
+      "time": "18:00",
+      "from": "fisica",
+      "to": "piscina"
+    },
+    {
+      "id": "7257d728-29ea-41de-9555-3d8182a294b6",
+      "day": 0,
+      "time": "19:50",
+      "from": "piscina",
+      "to": "casa"
+    },
+    {
+      "id": "0dd8b04b-65d8-420c-aaa5-19a07932bfce",
+      "day": 3,
+      "time": "12:10",
+      "from": "ingegneria",
+      "to": "fisica"
+    },
+    {
+      "id": "87c8bbb6-f27b-4b60-a5dd-da4753e46052",
+      "day": 3,
+      "time": "18:00",
+      "from": "fisica",
+      "to": "casa"
+    },
+    {
+      "id": "7513cad6-3c19-4694-965d-818284d0f30b",
+      "day": 4,
+      "time": "18:00",
+      "from": "fisica",
+      "to": "casa"
+    },
+    {
+      "id": "f165a3e0-0c56-406c-a30f-7a8c3f96f524",
+      "day": 4,
+      "time": "20:15",
+      "from": "casa",
+      "to": "teatro"
+    },
+    {
+      "id": "5da70781-f65a-4a36-b4d0-c97582290c42",
+      "day": 4,
+      "time": "23:50",
+      "from": "teatro",
+      "to": "casa"
     }
   ]
 }
