@@ -44,7 +44,7 @@ const apiFile="https://api.github.com/repos/giacomoubaldi/meteo-scooter-bologna/
 let remoteSha=null,dirty=false,loadingRemote=false;
 function queueSync(){if(!loadingRemote){dirty=true;$("syncStatus").textContent="Modifiche da salvare: premi Commit and Reload."}}
 function b64Encode(value){return btoa(Array.from(new TextEncoder().encode(value),b=>String.fromCharCode(b)).join(""))}
-function b64Decode(value){return new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\\s/g,"")),c=>c.charCodeAt(0)))}
+function b64Decode(value){return new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\s/g,"")),c=>c.charCodeAt(0)))}
 async function getConfig(){
  const r=await fetch(apiFile+"?nocache="+Date.now(),{cache:"no-store"});
  if(!r.ok)throw Error("Lettura GitHub: HTTP "+r.status);
