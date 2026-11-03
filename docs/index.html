@@ -56,6 +56,7 @@ function renderFavorites(){
   remove.onclick=()=>{favorites.splice(i,1);saveFavorites();renderFavorites()};
   item.append(use,remove);list.append(item);
  });
+ if(typeof renderCalendarSelectors==="function")renderCalendarSelectors();
 }
 $("swap").onclick=()=>{const old=$("from").value;$("from").value=$("to").value;$("to").value=old};
 $("saveFavorite").onclick=()=>{
