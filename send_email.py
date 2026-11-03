@@ -38,33 +38,13 @@ def trip_result(title, origin, destination, time, result):
     )
 
 def calendar_trips(day):
-    """Read the same private weekly calendar as the web app, via Supabase Auth."""
-    url = os.environ.get("SCOOTER_SUPABASE_URL", "").rstrip("/")
-    key = os.environ.get("SCOOTER_SUPABASE_ANON_KEY", "")
-    email = os.environ.get("SCOOTER_EMAIL", "")
-    password = os.environ.get("SCOOTER_PASSWORD", "")
-    if not all((url, key, email, password)):
-        raise RuntimeError("Configurazione calendario Supabase incompleta: email non inviata.")
-    req = urllib.request.Request(
-        url + "/auth/v1/token?grant_type=password",
-        data=json.dumps({"email": email, "password": password}).encode(),
-        headers={"apikey": key, "Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=30) as response:
-        auth = json.load(response)
-    user_id = auth["user"]["id"]
-    req = urllib.request.Request(
-        url + "/rest/v1/scooter_settings?select=payload&user_id=eq." + urllib.parse.quote(user_id),
-        headers={"apikey": key, "Authorization": "Bearer " + auth["access_token"]},
-    )
-    with urllib.request.urlopen(req, timeout=30) as response:
-        rows = json.load(response)
-    payload = rows[0]["payload"] if rows else {}
-    regions = {**REGIONS, **payload.get("regions", {})}
+    """Read the weekly schedule from the repository checked out by GitHub Actions."""
+    with open("data/config.json", encoding="utf-8") as source:
+        payload = json.load(source)
+    regions = {**REGIONS, **payload.get("tappe", {})}
     trips = sorted(
-        (t for t in payload.get("calendar", []) if t.get("day") == day.weekday()),
-        key=lambda t: t.get("time", ""),
+        (item for item in payload.get("calendar", []) if item.get("day") == day.weekday()),
+        key=lambda item: item.get("time", ""),
     )
     return regions, trips
 
