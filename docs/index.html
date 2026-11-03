@@ -11,7 +11,7 @@ button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .calendar{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;overflow-x:auto;padding-bottom:10px}.calendar-day{min-width:110px;background:#102039;border-radius:10px;padding:8px}.calendar-day h4{margin:2px 0 10px}.calendar-trip{background:#265780;border-radius:8px;padding:7px;margin:6px 0;font-size:12px;overflow-wrap:anywhere}.calendar-trip button{width:auto;padding:4px 7px;margin:5px 3px 0 0;font-size:12px}.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:670px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(5){white-space:normal}}
-</style></head><body>
+.commit-area{margin:14px 0 20px}.commit-area button{margin-top:0}.commit-area p{font-size:.85rem;color:#b9cde0}dialog{border:1px solid #53647e;border-radius:18px;background:#17273d;color:#edf5ff;width:min(440px,calc(100% - 36px));padding:24px;box-sizing:border-box}dialog::backdrop{background:#000a}.dialog-actions{display:flex;gap:10px}.dialog-actions button{flex:1}.dialog-actions #tokenCancel{background:#304d6c}#tokenError{color:#ffb3b3}</style></head><body>
 <h1>🛵 Meteo Scooter Bologna</h1>
 <p>Previsioni lungo il tragitto: partenza, metà percorso e arrivo, con controllo delle partenze ±30 minuti.</p>
 <section class="card"><h2>🌦️ Consulta il meteo</h2><div class="grid">
@@ -26,12 +26,14 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px
 <label>⭐ Percorso preferito (facoltativo)</label><select id="calFavorite"><option value="">Scegli un percorso salvato…</option></select><div class="grid"><div><label>Giorno</label><select id="calDay"></select></div><div><label>Ora</label><input id="calTime" type="time" value="09:00"></div><div><label>Da</label><select id="calFrom"></select></div><div><label>A</label><select id="calTo"></select></div></div>
 <button id="calSave">Aggiungi tragitto</button><button id="calCancel" type="button" hidden>Annulla modifica</button>
 </details>
-<section class="card"><h2>💾 Salvataggio GitHub</h2><p><small>Le modifiche vengono salvate nel repository. Per autorizzare il commit serve un token GitHub con permesso Contents: Read and write sul solo repository. Non salvare il token nel browser.</small></p><label>Token GitHub (solo per il commit)</label><input id="githubToken" type="password" autocomplete="off"><button id="commitReload">Commit and Reload</button><p id="syncStatus" aria-live="polite">Caricamento dati…</p></section>
+
 <details class="card saved-stops"><summary>📍 Tappe salvate</summary><div id="regions"></div>
 <label>Nome nuova tappa</label><input id="name" placeholder="piscina">
 <label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
 <button id="add">Aggiungi tappa</button>
 <p><small>Le tappe aggiunte restano in questo browser; l'email automatica usa Casa e Fisica.</small></p></details>
+<div class="commit-area"><button id="commitReload" type="button">💾 Commit and Reload</button><p id="syncStatus" aria-live="polite">Caricamento dati…</p></div>
+<dialog id="tokenDialog" aria-labelledby="tokenTitle"><form id="tokenForm" method="dialog"><h2 id="tokenTitle">🔑 Autorizza il commit</h2><p><small>Inserisci il token GitHub per salvare sul repository. Puoi scegliere di memorizzarlo nel gestore password del browser, se disponibile.</small></p><label for="githubUser">Utente GitHub</label><input id="githubUser" name="username" autocomplete="username" value="giacomoubaldi" required><label for="githubToken">Token GitHub</label><input id="githubToken" name="password" type="password" autocomplete="current-password" required><p id="tokenError" role="alert"></p><div class="dialog-actions"><button id="tokenCancel" type="button">Annulla</button><button id="tokenSubmit" type="submit">Conferma e salva</button></div></form></dialog>
 <p><small>Fonti: Open-Meteo, OpenStreetMap/Nominatim e OSRM. Stime, non radar in tempo reale. Durata scooter: 25 km/h + 3 min.</small></p>
 <script>
 const defaults={casa:"Via Alceste Giovannini, Bologna, Italia",fisica:"Via Irnerio 46, Bologna, Italia",ingegneria:"Viale del Risorgimento 2, Bologna, Italia"};
@@ -211,4 +213,4 @@ $("go").onclick=async()=>{
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
-</script><script src="calendar-sync.js?v=20261104-2"></script></body></html>
+</script><script src="calendar-sync.js?v=20261104-3"></script></body></html>
