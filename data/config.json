@@ -1,1 +1,62 @@
-{"tappe":{"casa":"Via Alceste Giovannini, Bologna, Italia","fisica":"Via Irnerio 46, Bologna, Italia","ingegneria":"Viale del Risorgimento 2, Bologna, Italia"},"favorites":[],"calendar":[]}
+{
+  "tappe": {
+    "casa": "Via Alceste Giovannini, Bologna, Italia",
+    "fisica": "Via Irnerio 46, Bologna, Italia",
+    "ingegneria": "Viale del Risorgimento 2, Bologna, Italia"
+  },
+  "favorites": [
+    {
+      "from": "casa",
+      "to": "fisica"
+    },
+    {
+      "from": "fisica",
+      "to": "casa"
+    },
+    {
+      "from": "fisica",
+      "to": "ingegneria"
+    },
+    {
+      "from": "ingegneria",
+      "to": "fisica"
+    }
+  ],
+  "calendar": [
+    {
+      "id": "46d1b218-8b0b-4012-9ae4-280253a69968",
+      "day": 0,
+      "time": "09:00",
+      "from": "casa",
+      "to": "fisica"
+    },
+    {
+      "id": "97275adc-f37f-4b7a-a51d-bd3f83de8bcf",
+      "day": 1,
+      "time": "09:00",
+      "from": "casa",
+      "to": "fisica"
+    },
+    {
+      "id": "fdf055cf-6e35-4c38-9835-8424aa6a5b05",
+      "day": 2,
+      "time": "09:00",
+      "from": "casa",
+      "to": "fisica"
+    },
+    {
+      "id": "e3db2522-d7b5-4a9a-a833-56dfd2bc6f39",
+      "day": 3,
+      "time": "09:00",
+      "from": "casa",
+      "to": "fisica"
+    },
+    {
+      "id": "24304e3f-7d95-4386-a0f2-4d89b3619c06",
+      "day": 4,
+      "time": "09:00",
+      "from": "casa",
+      "to": "fisica"
+    }
+  ]
+}
