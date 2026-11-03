@@ -162,7 +162,7 @@ $("go").onclick=async()=>{
   let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
   out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
    +"<table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
-   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
+   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherLabel(x.nominal.code)+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
    +"</table><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
