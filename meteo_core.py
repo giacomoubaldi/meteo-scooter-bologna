@@ -76,7 +76,7 @@ def evaluate(origin, destination, departure):
     for i, point in enumerate(points):
         query = urllib.parse.urlencode({
             "latitude": point[0], "longitude": point[1],
-            "hourly": "precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
+            "hourly": "weather_code,precipitation_probability,precipitation,temperature_2m,wind_speed_10m",
             "timezone": "Europe/Rome",
             "start_date": first.isoformat(), "end_date": last.isoformat(),
         })
@@ -84,7 +84,10 @@ def evaluate(origin, destination, departure):
         variants = []
         for offset in (-30, 0, 30):
             passage = departure + dt.timedelta(minutes=duration * i / 2 + offset)
+            codes = hourly.get("weather_code", [])
+            nearest = min(range(len(hourly["time"])), key=lambda j: abs((dt.datetime.fromisoformat(hourly["time"][j]) - passage.replace(tzinfo=None)).total_seconds())) if codes else None
             variants.append({
+                "weather_code": codes[nearest] if nearest is not None and abs((dt.datetime.fromisoformat(hourly["time"][nearest]) - passage.replace(tzinfo=None)).total_seconds()) <= 3600 else None,
                 "time": passage.isoformat(),
                 "probability": interpolate(hourly["time"], hourly["precipitation_probability"], passage),
                 "rain_hour": interpolate(hourly["time"], hourly["precipitation"], passage),
