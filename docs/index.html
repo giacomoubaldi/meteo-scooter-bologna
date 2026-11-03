@@ -76,11 +76,33 @@ async function api(url,service="Servizio esterno"){
  if(!r.ok)throw Error(service+": risposta HTTP "+r.status);
  try{return await r.json()}catch(e){throw Error(service+": risposta non valida")}
 }
+const geoCacheKey="scooterGeocodingCacheV1";
+let geoCache={};
+try{const saved=JSON.parse(localStorage.getItem(geoCacheKey)||"{}");if(saved&&typeof saved==="object"&&!Array.isArray(saved))geoCache=saved}catch(e){}
+function validCoords(p){return Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180}
 async function geo(address){
- let d=await api("https://nominatim.openstreetmap.org/search?"+new URLSearchParams({q:address,format:"json",limit:1}),"Nominatim (ricerca indirizzi)");
- if(!d.length)throw Error("Indirizzo non trovato");
- return [+d[0].lat,+d[0].lon];
+ const key=address.trim().toLowerCase();
+ if(validCoords(geoCache[key]))return geoCache[key];
+ let point=null;
+ try{
+  const data=await api("https://nominatim.openstreetmap.org/search?"+new URLSearchParams({q:address,format:"json",limit:1}),"Nominatim");
+  if(data.length)point=[Number(data[0].lat),Number(data[0].lon)];
+ }catch(e){console.warn("Nominatim non disponibile:",e.message)}
+ if(!validCoords(point)){
+  try{
+   const data=await api("https://photon.komoot.io/api/?"+new URLSearchParams({q:address,limit:1,lat:44.4949,lon:11.3426}),"Photon");
+   if(data.features?.length){
+    const coords=data.features[0].geometry.coordinates;
+    point=[Number(coords[1]),Number(coords[0])];
+   }
+  }catch(e){console.warn("Photon non disponibile:",e.message)}
+ }
+ if(!validCoords(point))throw Error("Impossibile trovare le coordinate di '"+address+"': Nominatim e Photon non disponibili o indirizzo non trovato. Riprova più tardi.");
+ geoCache[key]=point;
+ try{localStorage.setItem(geoCacheKey,JSON.stringify(geoCache))}catch(e){}
+ return point;
 }
+
 function dist(a,b){
  let r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r;
  return 12742000*Math.asin(Math.sqrt(Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2));
