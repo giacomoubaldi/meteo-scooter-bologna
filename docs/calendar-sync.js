@@ -76,18 +76,26 @@ async function loadConfig(){
  try{const {sha,data}=await getConfig();remoteSha=sha;applyConfig(data);$("syncStatus").textContent="Dati caricati da GitHub."}
  catch(e){$("syncStatus").textContent="Caricamento non riuscito: "+e.message}
 }
-$("commitReload").onclick=async()=>{
+$("commitReload").onclick=()=>{$("tokenError").textContent="";$("tokenDialog").showModal();$("githubToken").focus()};
+$("tokenCancel").onclick=()=>{$("tokenDialog").close();$("githubToken").value=""};
+$("tokenForm").addEventListener("submit",async event=>{
+ event.preventDefault();
  const token=$("githubToken").value.trim();
- if(!token){$("syncStatus").textContent="Inserisci il token GitHub per salvare.";return}
- const button=$("commitReload");button.disabled=true;
+ if(!token)return;
+ const button=$("tokenSubmit");button.disabled=true;
+ $("tokenError").textContent="";
  try{
   const latest=await getConfig();
-  if(latest.sha!==remoteSha)throw Error("Modifiche effettuate da un altro dispositivo: ricarica la pagina prima di salvare.");
+  if(latest.sha!==remoteSha)throw Error("I dati sono cambiati su un altro dispositivo. Ricarica prima di salvare.");
   const payload={tappe:regions,favorites,calendar};
   const r=await fetch(apiFile,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({message:"Update scooter calendar, stops and favorites",content:b64Encode(JSON.stringify(payload,null,2)),sha:latest.sha,branch:"main"})});
   if(!r.ok)throw Error("Commit non riuscito: HTTP "+r.status);
+  $("syncStatus").textContent="Commit completato. Ricaricamento…";
+  $("tokenDialog").close();
   $("githubToken").value="";
   location.reload();
- }catch(e){$("syncStatus").textContent=e.message;button.disabled=false}
-};
+ }catch(e){$("tokenError").textContent=e.message}
+ finally{button.disabled=false}
+});
+
 loadConfig();
