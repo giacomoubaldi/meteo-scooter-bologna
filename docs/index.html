@@ -8,7 +8,7 @@ body{max-width:850px;margin:auto;padding:24px 16px}h1{font-size:2rem}
 label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #53647e;background:#102039;color:white;width:100%;box-sizing:border-box}
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-title{margin:16px 0 8px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
+.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #41516a}
 @media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}}
 </style></head><body>
@@ -20,11 +20,11 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;bord
 <div><label>Data</label><input id="date" type="date"></div>
 <div><label>Ora</label><input id="time" type="time" value="09:00"></div>
 </div><div class="actions"><button id="go">Calcola</button><button id="swap" type="button" title="Inverti partenza e arrivo" aria-label="Inverti partenza e arrivo">⇄</button></div><button id="saveFavorite" class="save-favorite" type="button">⭐ Aggiungi ai preferiti</button><div id="favoriteSection"><h3 class="favorite-title">⭐ Percorsi preferiti</h3><div id="favorites" class="favorites"></div></div><div id="result" aria-live="polite"></div></section>
-<section class="card"><h2>📍 Regioni salvate</h2><div id="regions"></div>
-<label>Nome nuova regione</label><input id="name" placeholder="piscina">
+<details class="card saved-stops"><summary>📍 Tappe salvate</summary><div id="regions"></div>
+<label>Nome nuova tappa</label><input id="name" placeholder="piscina">
 <label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
-<button id="add">Aggiungi regione</button>
-<p><small>Le regioni aggiunte restano in questo browser; l'email automatica usa Casa e Fisica.</small></p></section>
+<button id="add">Aggiungi tappa</button>
+<p><small>Le tappe aggiunte restano in questo browser; l'email automatica usa Casa e Fisica.</small></p></details>
 <p><small>Fonti: Open-Meteo, OpenStreetMap/Nominatim e OSRM. Stime, non radar in tempo reale. Durata scooter: 25 km/h + 3 min.</small></p>
 <script>
 const defaults={casa:"Via Alceste Giovannini, Bologna, Italia",fisica:"Via Irnerio 46, Bologna, Italia",ingegneria:"Viale del Risorgimento 2, Bologna, Italia"};
@@ -41,7 +41,7 @@ function renderFavorites(){
   const item=document.createElement("div");item.className="favorite-item";
   const use=document.createElement("button");use.type="button";use.textContent=fav.from+" → "+fav.to;
   use.title="Compila partenza e arrivo";use.onclick=()=>{
-   if(!regions[fav.from]||!regions[fav.to]){alert("Una delle regioni di questo percorso non esiste più.");return}
+   if(!regions[fav.from]||!regions[fav.to]){alert("Una delle tappe di questo percorso non esiste più.");return}
    $("from").value=fav.from;$("to").value=fav.to;
   };
   const remove=document.createElement("button");remove.type="button";remove.className="remove-favorite";
@@ -127,7 +127,7 @@ function sample(data,m){
 function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
 $("add").onclick=async()=>{
  let k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
- if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){alert("Inserisci nome e indirizzo");return}
+ if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){alert("Inserisci nome e indirizzo della tappa");return}
  try{await geo(v);regions[k]=v;localStorage.setItem("regionsScooter",JSON.stringify(regions));render();$("name").value="";$("address").value=""}
  catch(e){alert(e.message)}
 };
