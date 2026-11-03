@@ -73,7 +73,7 @@ function render(){
  }
  $("regions").replaceChildren();
  for(let [k,v] of Object.entries(regions)){let p=document.createElement("p");p.textContent=k+": "+v;$("regions").append(p)}
- renderCalendarSelectors();
+ if(typeof renderCalendarSelectors==="function")renderCalendarSelectors();
 }
 $("date").value=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Rome",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 render();
