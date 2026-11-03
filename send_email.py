@@ -78,8 +78,10 @@ def main():
         + "<p>Previsioni Open-Meteo e percorso OSRM. Durata stimata: 25 km/h + 3 minuti.</p>"
         "</body></html>", subtype="html"
     )
+    if not sender.strip() or not password.strip():
+        raise RuntimeError("Controlla i secrets GMAIL_USER e GMAIL_APP_PASSWORD.")
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-        smtp.login(sender, password)
+        smtp.login(sender.strip(), password.replace(" ", "").strip())
         smtp.send_message(message)
     print("Email inviata.")
 
