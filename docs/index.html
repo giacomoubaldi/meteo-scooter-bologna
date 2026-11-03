@@ -7,6 +7,7 @@ body{max-width:850px;margin:auto;padding:24px 16px}h1{font-size:2rem}
 .card{background:#17273d;padding:24px;border-radius:18px;margin:18px 0;box-shadow:0 8px 28px #0003}
 label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #53647e;background:#102039;color:white;width:100%;box-sizing:border-box}
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
+.actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-title{margin:16px 0 8px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;border-bottom:1px solid #41516a}
 @media(max-width:600px){.grid{grid-template-columns:1fr}table{font-size:12px}}
@@ -18,7 +19,7 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;bord
 <div><label>A</label><select id="to"></select></div>
 <div><label>Data</label><input id="date" type="date"></div>
 <div><label>Ora</label><input id="time" type="time" value="09:00"></div>
-</div><button id="go">Calcola</button><div id="result" aria-live="polite"></div></section>
+</div><div class="actions"><button id="go">Calcola</button><button id="swap" type="button" title="Inverti partenza e arrivo" aria-label="Inverti partenza e arrivo">⇄</button></div><button id="saveFavorite" class="save-favorite" type="button">⭐ Aggiungi ai preferiti</button><div id="favoriteSection"><h3 class="favorite-title">⭐ Percorsi preferiti</h3><div id="favorites" class="favorites"></div></div><div id="result" aria-live="polite"></div></section>
 <section class="card"><h2>📍 Regioni salvate</h2><div id="regions"></div>
 <label>Nome nuova regione</label><input id="name" placeholder="piscina">
 <label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
@@ -29,6 +30,34 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px;bord
 const defaults={casa:"Via Alceste Giovannini, Bologna, Italia",fisica:"Via Irnerio 46, Bologna, Italia",ingegneria:"Viale del Risorgimento 2, Bologna, Italia"};
 let regions={...defaults,...JSON.parse(localStorage.getItem("regionsScooter")||"{}")};
 const $=id=>document.getElementById(id);
+const favoritesKey="favoriteRoutesScooter";
+let favorites=[];
+try{const stored=JSON.parse(localStorage.getItem(favoritesKey)||"[]");if(Array.isArray(stored))favorites=stored.filter(x=>x&&typeof x.from==="string"&&typeof x.to==="string")}catch(e){favorites=[]}
+function saveFavorites(){localStorage.setItem(favoritesKey,JSON.stringify(favorites))}
+function renderFavorites(){
+ const list=$("favorites");list.replaceChildren();
+ $("favoriteSection").hidden=!favorites.length;
+ favorites.forEach((fav,i)=>{
+  const item=document.createElement("div");item.className="favorite-item";
+  const use=document.createElement("button");use.type="button";use.textContent=fav.from+" → "+fav.to;
+  use.title="Compila partenza e arrivo";use.onclick=()=>{
+   if(!regions[fav.from]||!regions[fav.to]){alert("Una delle regioni di questo percorso non esiste più.");return}
+   $("from").value=fav.from;$("to").value=fav.to;
+  };
+  const remove=document.createElement("button");remove.type="button";remove.className="remove-favorite";
+  remove.textContent="×";remove.title="Rimuovi preferito";remove.setAttribute("aria-label","Rimuovi "+fav.from+" verso "+fav.to);
+  remove.onclick=()=>{favorites.splice(i,1);saveFavorites();renderFavorites()};
+  item.append(use,remove);list.append(item);
+ });
+}
+$("swap").onclick=()=>{const old=$("from").value;$("from").value=$("to").value;$("to").value=old};
+$("saveFavorite").onclick=()=>{
+ const from=$("from").value,to=$("to").value;
+ if(!from||!to){alert("Seleziona partenza e arrivo.");return}
+ if(favorites.some(f=>f.from===from&&f.to===to)){alert("Percorso già presente nei preferiti.");return}
+ favorites.push({from,to});saveFavorites();renderFavorites();
+};
+renderFavorites();
 function render(){
  for(const id of ["from","to"]){
   let old=$(id).value;$(id).replaceChildren();
