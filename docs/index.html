@@ -9,8 +9,8 @@ label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:1
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-title{margin:16px 0 8px}
 .saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
-table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:590px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
-@media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(4){white-space:normal}}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:670px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(5){white-space:normal}}
 </style></head><body>
 <h1>🛵 Meteo Scooter Bologna</h1>
 <p>Previsioni lungo il tragitto: partenza, metà percorso e arrivo, con controllo delle partenze ±30 minuti.</p>
@@ -156,6 +156,14 @@ function sample(data,m){
  let h=data.hourly;
  return {code:nearestWeatherCode(h.time,h.weather_code,m),prob:interp(h.time,h.precipitation_probability,m),rain:interp(h.time,h.precipitation,m),temp:interp(h.time,h.temperature_2m,m),wind:interp(h.time,h.wind_speed_10m,m)};
 }
+function clothingAdvice(temp,wind,rain,prob){
+ if(temp==null)return "🧥 Temperatura non disponibile: porta una giacca antivento.";
+ const perceived=temp-(wind==null?0:Math.min(7,Math.max(0,wind-10)*0.15));
+ let message=perceived<5?"🧥 Giacca pesante imbottita, guanti caldi e scaldacollo":perceived<11?"🧥 Giacca pesante o giacca da moto con imbottitura termica":perceived<17?"🧥 Giacca antivento con strato caldo":perceived<23?"🧥 Giacca leggera antivento":"🛵 Giacca da moto leggera e traspirante";
+ if(wind!=null&&wind>=25)message+="; 💨 vento sostenuto: chiudi bene la giacca";
+ if((prob!=null&&prob>=35)||(rain!=null&&rain>0))message+="; 🌧️ porta uno strato impermeabile";
+ return message+".";
+}
 function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
 $("add").onclick=async()=>{
  let k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
@@ -185,11 +193,13 @@ $("go").onclick=async()=>{
   let all=rows.flatMap(x=>x.variants);
   let max=k=>{let v=all.map(x=>x[k]).filter(x=>x!=null);return v.length?Math.max(...v):null};
   let prob=max("prob"),rain=max("rain"),wind=max("wind");
+  let temperatures=all.map(x=>x.temp).filter(x=>x!=null);
+  let minTemp=temperatures.length?Math.min(...temperatures):null;
   let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
   out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
-   +"<div class=\"forecast-table\"><table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
-   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
-   +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p>";
+   +"<div class=\"forecast-table\"><table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Temp.</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
+   +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.temp,1)+" °C</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
+   +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
 </script></body></html>
