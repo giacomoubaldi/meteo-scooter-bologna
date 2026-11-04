@@ -242,13 +242,20 @@ async function loadBolognaFuel(){
    let html=await response.text();
    if(url.includes("/get?")){const wrapper=JSON.parse(html);html=wrapper.contents||""}
    const data=parse(html);
-   fuelData={price_eur_l:data.price};
-   el.textContent="⛽ Benzina Bologna: "+data.price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+data.date+(data.count?" · "+data.count+" distributori":"")+" · fonte Mappa Carburanti / MIMIT";
-   return true;
-  }catch(error){console.warn("Fonte benzina non raggiungibile:",url,error);return false}
+   return data;
+  }catch(error){console.warn("Fonte benzina non raggiungibile:",url,error);return null}
  });
- await Promise.allSettled(attempts);
- if(fuelData)return;
+ const results=await Promise.all(attempts);
+ const candidates=results.filter(x=>x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)).sort((a,b)=>b.date.localeCompare(a.date));
+ const latest=candidates[0];
+ if(latest){
+  const today=new Date();
+  const age=Math.floor((Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())-Date.parse(latest.date+"T00:00:00Z"))/86400000);
+  const fresh=age>=0&&age<=2;
+  fuelData=fresh?{price_eur_l:latest.price}:null;
+  el.textContent=(fresh?"⛽ Benzina Bologna: ":"⚠️ Ultima rilevazione disponibile (non aggiornata): ")+latest.price.toFixed(3).replace(".",",")+" €/L · "+latest.date+(latest.count?" · "+latest.count+" distributori":"")+(fresh?"":" · "+age+" giorni fa; costo tragitto non stimato")+" · fonte Mappa Carburanti / MIMIT";
+  return;
+ }
  fuelData=null;
  el.textContent="Prezzo non disponibile automaticamente. ";
  const link=document.createElement("a");
