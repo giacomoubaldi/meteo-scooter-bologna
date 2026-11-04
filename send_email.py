@@ -106,7 +106,7 @@ def main():
                 return json.load(response)
         pointer = get_json(root + "current.json")
         generation = str(pointer["generation"])
-        if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}-[a-fA-F0-9]+", generation):
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}-[a-fA-F0-9]+", generation):
             raise ValueError("Generazione snapshot non valida")
         data = get_json(root + generation + "/citta/bologna.json")
         if data.get("generation") != generation:
@@ -114,7 +114,7 @@ def main():
         date = dt.date.fromisoformat(data["extracted_on"])
         price = float(data["fuels"]["benzina"]["stats"]["avg"])
         if 0 <= (now.date() - date).days <= 2 and 1 < price < 3.5:
-            fuel = {"price_eur_l": price, "extraction": date.isoformat()}
+            fuel = {"price_eur_l": price, "extraction": date.isoformat(), "stations": int(data["fuels"]["benzina"]["stats"]["count"])}
         else:
             print("Prezzo benzina non recente: non incluso nell'email.")
     except (OSError, ValueError, KeyError, TypeError) as error:
@@ -127,10 +127,14 @@ def main():
         departure = dt.datetime.combine(tomorrow, dt.time.fromisoformat(item["time"]), tzinfo=TZ)
         result = evaluate(regions[origin], regions[destination], departure)
         body += trip_result(f"{origin} → {destination}", origin, destination, item["time"], result, fuel)
-    if fuel:
-        body = f"<p><strong>⛽ Benzina self Bologna:</strong> {fuel['price_eur_l']:.3f} €/L · Rilevazione {html.escape(str(fuel.get('extraction', 'n.d.')))}.</p>" + body
     if not planned:
         body = "<p>Nessun tragitto previsto nel calendario per domani.</p>"
+    if fuel:
+        fuel_info = (f"<h2>⛽ Benzina a Bologna</h2><p><strong>Prezzo medio self:</strong> {fuel['price_eur_l']:.3f} €/L"
+                     f" · {fuel['stations']} distributori · Rilevazione {html.escape(fuel['extraction'])}.</p>")
+    else:
+        fuel_info = "<h2>⛽ Benzina a Bologna</h2><p>Prezzo aggiornato non disponibile: stima del costo carburante omessa.</p>"
+    body = fuel_info + body
     sender = os.environ["GMAIL_USER"]
     password = os.environ["GMAIL_APP_PASSWORD"]
     message = EmailMessage()
