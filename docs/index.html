@@ -222,16 +222,16 @@ async function loadBolognaFuel(){
  ];
  function parse(html){
   const doc=new DOMParser().parseFromString(html,"text/html");
-  const text=doc.body.textContent.replace(/\\s+/g," ");
+  const text=doc.body.textContent.replace(/\s+/g," ");
   const patterns=[
-   /prezzo medio (?:della |del )?benzina (?:è(?: di)?|:)\\s*€?\\s*([0-9]+[.,][0-9]{2,3})\\s*\\/\\s*L/i,
-   /prezzo medio del benzina (?:è(?: di)?|:)\\s*€?\\s*([0-9]+[.,][0-9]{2,3})\\s*\\/\\s*L/i
+   /prezzo medio (?:della |del )?benzina (?:è(?: di)?|:)\s*€?\s*([0-9]+[.,][0-9]{2,3})\s*\/\s*L/i,
+   /prezzo medio del benzina (?:è(?: di)?|:)\s*€?\s*([0-9]+[.,][0-9]{2,3})\s*\/\s*L/i
   ];
   let price=null;
   for(const pattern of patterns){const match=text.match(pattern);if(match){price=Number(match[1].replace(",","."));break}}
   if(!(price>1&&price<3.5))throw Error("Prezzo medio benzina non trovato nella pagina");
-  const date=(text.match(/(?:aggiornat[io] il|estrazione MIMIT del|Oggi)\\s*(\\d{4}-\\d{2}-\\d{2})/i)||[])[1]||"data non indicata";
-  const count=(text.match(/su\\s+(\\d+)\\s+distributori/i)||[])[1];
+  const date=(text.match(/(?:aggiornat[io] il|estrazione MIMIT del|Oggi)\s*(\d{4}-\d{2}-\d{2})/i)||[])[1]||"data non indicata";
+  const count=(text.match(/su\s+(\d+)\s+distributori/i)||[])[1];
   return {price,date,count};
  }
  el.textContent="Caricamento prezzo benzina Bologna…";
@@ -289,4 +289,4 @@ $("go").onclick=async()=>{
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
  }catch(e){out.textContent="Errore: "+e.message}
 };
-</script><script src="calendar-sync.js?v=20261104-4"></script></body></html>
+</script><script src="calendar-sync.js?v=20261104-5"></script></body></html>
