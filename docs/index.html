@@ -274,7 +274,7 @@ $("go").onclick=async()=>{
   const consumption=Number(fuelInput.value),km=route.distance/1000;
   const liters=km*consumption/100;
   const fuelCost=fuelData&&consumption>=1&&consumption<=15?" · ⛽ "+liters.toFixed(2)+" L · 💶 "+(liters*fuelData.price_eur_l).toFixed(2)+" €":"";
-  out.innerHTML="<h3>"+km.toFixed(1)+" km · circa "+Math.round(duration)+" minuti"+fuelCost+"</h3>"
+  out.innerHTML="<h3>🛵 "+km.toFixed(1)+" km · 🕒 circa "+Math.round(duration)+" minuti"+fuelCost+"</h3>"
    +"<div class=\"forecast-table\"><table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Temp.</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
    +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.temp,1)+" °C</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
