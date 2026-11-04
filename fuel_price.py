@@ -84,63 +84,37 @@ def download_api():
 
 
 def parse_api(data):
-    """Accetta schemi JSON comuni, senza confondere minimo e prezzo medio."""
-    print("API struttura:", repr(data)[:1800], flush=True)
+    """Legge lo schema effettivo dell'API: fuels.benzina.stats.avg."""
     if not isinstance(data, dict):
-        raise ValueError("La risposta API non è un oggetto JSON")
-    candidates = [data]
-    for key in ("data", "city", "citta", "prices", "prezzi", "fuels", "carburanti", "summary", "riepilogo"):
-        nested = data.get(key)
-        if isinstance(nested, dict):
-            candidates.append(nested)
-            for fuel_key in ("benzina", "Benzina", "gasoline", "petrol"):
-                if isinstance(nested.get(fuel_key), dict):
-                    candidates.append(nested[fuel_key])
-    for key in ("benzina", "Benzina", "gasoline", "petrol"):
-        if isinstance(data.get(key), dict):
-            candidates.append(data[key])
+        raise ValueError("API: risposta non valida")
+    stats = data.get("fuels", {}).get("benzina", {}).get("stats", {})
+    date = data.get("extracted_on") or data.get("date")
+    if not isinstance(date, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise ValueError("API: data di estrazione non riconosciuta")
+    try:
+        price = float(str(stats["avg"]).replace(",", "."))
+    except (KeyError, ValueError, TypeError) as exc:
+        raise ValueError("API: fuels.benzina.stats.avg assente o non valido") from exc
+    if not 1.0 <= price <= 3.5:
+        raise ValueError(f"API: prezzo fuori intervallo: {price}")
+    today = dt.datetime.now(ZoneInfo("Europe/Rome")).date()
+    age = (today - dt.date.fromisoformat(date)).days
+    print(f"API MIMIT: rilevazione {date}, prezzo medio benzina {price:.3f} €/L, "
+          f"distributori {stats.get('count')}, età {age} giorni", flush=True)
+    if age < 0 or age > 2:
+        raise ValueError(f"API: rilevazione non recente ({date}, {age} giorni); JSON precedente conservato")
+    return {
+        "city": "Bologna",
+        "fuel": "Benzina",
+        "service": "self",
+        "price_eur_l": round(price, 3),
+        "stations": stats.get("count"),
+        "extraction": date,
+        "updated_at": dt.datetime.now(ZoneInfo("Europe/Rome")).isoformat(timespec="seconds"),
+        "source": "Mappa Carburanti (dati MIMIT)",
+        "source_url": API_URL,
+    }
 
-    def date_value(value):
-        if isinstance(value, str):
-            match = re.search(r"\d{4}-\d{2}-\d{2}", value)
-            if match:
-                return match.group()
-        return None
-
-    date = None
-    for obj in candidates:
-        for key in ("extraction", "extraction_date", "data_estrazione", "date",
-                    "updated_at", "last_updated", "data_aggiornamento", "dataset_date"):
-            date = date_value(obj.get(key))
-            if date:
-                break
-        if date:
-            break
-    if not date:
-        raise ValueError("API: data rilevazione assente o schema non riconosciuto")
-
-    for obj in candidates:
-        for key in ("price_eur_l", "avg_price", "average_price", "prezzo_medio",
-                    "prezzoMedio", "media", "average", "avg"):
-            val = obj.get(key)
-            if isinstance(val, dict):
-                continue
-            try:
-                price = float(str(val).replace(",", "."))
-            except (TypeError, ValueError):
-                continue
-            if 1.0 <= price <= 3.5:
-                stations = next((obj[k] for k in ("stations", "distributori", "count", "n_stations")
-                                 if isinstance(obj.get(k), int)), None)
-                return {
-                    "city": "Bologna", "fuel": "Benzina", "service": "self",
-                    "price_eur_l": round(price, 3), "stations": stations,
-                    "extraction": date,
-                    "updated_at": dt.datetime.now(ZoneInfo("Europe/Rome")).isoformat(timespec="seconds"),
-                    "source": "Mappa Carburanti Italia (dati MIMIT, licenza CC0)",
-                    "source_url": API_URL,
-                }
-    raise ValueError("API: prezzo medio benzina assente o schema non riconosciuto")
 
 def calculate():
     parser = TextExtractor()
