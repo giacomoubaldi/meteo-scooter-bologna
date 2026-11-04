@@ -14,6 +14,7 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px
 .commit-area{margin:14px 0 20px}.commit-area button{margin-top:0}.commit-area p{font-size:.85rem;color:#b9cde0}dialog{border:1px solid #53647e;border-radius:18px;background:#17273d;color:#edf5ff;width:min(440px,calc(100% - 36px));padding:24px;box-sizing:border-box}dialog::backdrop{background:#000a}.dialog-actions{display:flex;gap:10px}.dialog-actions button{flex:1}.dialog-actions #tokenCancel{background:#304d6c}#tokenError{color:#ffb3b3}</style></head><body>
 <h1>🛵 Meteo Scooter Bologna</h1>
 <p>Previsioni lungo il tragitto: partenza, metà percorso e arrivo, con controllo delle partenze ±30 minuti.</p>
+<section class="card"><h2>⛽ Benzina a Bologna</h2><p id="fuelPrice" aria-live="polite">Caricamento prezzo medio comunale…</p><label for="fuelConsumption">Consumo scooter (L/100 km)</label><input id="fuelConsumption" type="number" min="1" max="15" step="0.1" value="4"><p><small>Media benzina self nel Comune di Bologna, dati MIMIT. Consumo iniziale: 4 L/100 km.</small></p></section>
 <section class="card"><h2>🌦️ Consulta il meteo</h2><div class="grid">
 <div><label>Da</label><select id="from"></select></div>
 <div><label>A</label><select id="to"></select></div>
@@ -202,6 +203,20 @@ $("stopForm").addEventListener("submit",async event=>{
  }catch(e){error.textContent=e.message}
  finally{button.disabled=false}
 });
+let fuelData=null;
+const fuelInput=$("fuelConsumption");
+const savedConsumption=Number(localStorage.getItem("scooterConsumption"));
+if(Number.isFinite(savedConsumption)&&savedConsumption>=1&&savedConsumption<=15)fuelInput.value=String(savedConsumption);
+fuelInput.addEventListener("change",()=>{
+ const n=Number(fuelInput.value);
+ if(!Number.isFinite(n)||n<1||n>15){alert("Inserisci un consumo tra 1 e 15 L/100 km.");fuelInput.value="4";return}
+ localStorage.setItem("scooterConsumption",String(n));
+});
+fetch("fuel-price.json?ts="+Date.now()).then(r=>{if(!r.ok)throw Error("Dati non disponibili");return r.json()}).then(data=>{
+ if(!(data.price_eur_l>0))throw Error("Prezzo non valido");
+ fuelData=data;
+ $("fuelPrice").textContent="⛽ Benzina self: "+data.price_eur_l.toFixed(3).replace(".",",")+" €/L · "+data.stations+" distributori · Rilevazione: "+data.extraction;
+}).catch(()=>$("fuelPrice").textContent="Prezzo medio di Bologna non ancora disponibile. Riprova dopo il primo aggiornamento.");
 $("go").onclick=async()=>{
  let out=$("result");out.textContent="Calcolo percorso e previsioni…";
  try{
@@ -227,7 +242,10 @@ $("go").onclick=async()=>{
   let temperatures=all.map(x=>x.temp).filter(x=>x!=null);
   let minTemp=temperatures.length?Math.min(...temperatures):null;
   let advice=prob>=70||rain>=1?"🔴 Rischio pioggia elevato":prob>=35||rain>0?"🟡 Possibile pioggia: porta l’antipioggia":"🟢 Condizioni relativamente favorevoli";
-  out.innerHTML="<h3>"+(route.distance/1000).toFixed(1)+" km · circa "+Math.round(duration)+" minuti</h3>"
+  const consumption=Number(fuelInput.value),km=route.distance/1000;
+  const liters=km*consumption/100;
+  const fuelCost=fuelData&&consumption>=1&&consumption<=15?" · ⛽ "+liters.toFixed(2)+" L · 💶 "+(liters*fuelData.price_eur_l).toFixed(2)+" €":"";
+  out.innerHTML="<h3>"+km.toFixed(1)+" km · circa "+Math.round(duration)+" minuti"+fuelCost+"</h3>"
    +"<div class=\"forecast-table\"><table><tr><th>Punto</th><th>Ora</th><th>Tempo</th><th>Temp.</th><th>Prob. pioggia</th><th>Pioggia</th></tr>"
    +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.temp,1)+" °C</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
