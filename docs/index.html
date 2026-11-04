@@ -214,49 +214,45 @@ fuelInput.addEventListener("change",()=>{
 });
 async function loadBolognaFuel(){
  const el=$("fuelPrice");
- const endpoint="https://mappacarburanti.it/api/prezzi/citta/bologna.json";
- const proxy="https://api.allorigins.win/raw?url=";
- const num=v=>{const n=Number(typeof v==="string"?v.replace(",","."):v);return Number.isFinite(n)&&n>1&&n<3.5?n:null};
- const average=obj=>{
-  if(!obj||typeof obj!=="object")return null;
-  const keys=["benzina_self_media","benzinaSelfMedia","prezzo_medio_benzina","prezzoMedioBenzina","benzina_media","benzina","gasoline","petrol","prezzo_medio","media_benzina"];
-  for(const key of keys){
-   const v=obj[key];
-   if(v&&typeof v==="object"){
-    for(const sub of ["self","media_self","prezzo_medio","media","average","avg","mean","price"])if(num(v[sub]))return num(v[sub]);
-   }else if(num(v))return num(v);
-  }
-  for(const key of ["medie","medie_carburanti","prezzi_medi","prezzi","carburanti","fuels","averages","summary","riepilogo","data","stats"]){
-   const child=obj[key];
-   if(child&&typeof child==="object"&&!Array.isArray(child)){const found=average(child);if(found)return found}
-  }
-  return null;
- };
- async function getJson(url){
-  const r=await fetch(url,{cache:"no-store"});
-  if(!r.ok)throw Error("HTTP "+r.status);
-  return r.json();
+ const page="https://mappacarburanti.it/prezzi-benzina/bologna.html";
+ const sources=[
+  page,
+  "https://api.allorigins.win/raw?url="+encodeURIComponent(page),
+  "https://api.allorigins.win/get?url="+encodeURIComponent(page)
+ ];
+ function parse(html){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const text=doc.body.textContent.replace(/\\s+/g," ");
+  const patterns=[
+   /prezzo medio (?:della |del )?benzina (?:è(?: di)?|:)\\s*€?\\s*([0-9]+[.,][0-9]{2,3})\\s*\\/\\s*L/i,
+   /prezzo medio del benzina (?:è(?: di)?|:)\\s*€?\\s*([0-9]+[.,][0-9]{2,3})\\s*\\/\\s*L/i
+  ];
+  let price=null;
+  for(const pattern of patterns){const match=text.match(pattern);if(match){price=Number(match[1].replace(",","."));break}}
+  if(!(price>1&&price<3.5))throw Error("Prezzo medio benzina non trovato nella pagina");
+  const date=(text.match(/(?:aggiornat[io] il|estrazione MIMIT del|Oggi)\\s*(\\d{4}-\\d{2}-\\d{2})/i)||[])[1]||"data non indicata";
+  const count=(text.match(/su\\s+(\\d+)\\s+distributori/i)||[])[1];
+  return {price,date,count};
  }
- try{
-  let data;
-  try{data=await getJson(endpoint+"?t="+Date.now())}
-  catch(_){data=await getJson(proxy+encodeURIComponent(endpoint)+"&t="+Date.now())}
-  const price=average(data);
-  if(!price)throw Error("Formato dati non riconosciuto");
-  fuelData={price_eur_l:price};
-  const date=data.data_aggiornamento||data.updated_at||data.data_estrazione||data.date||"ultima rilevazione";
-  el.textContent="⛽ Benzina Bologna: "+price.toFixed(3).replace(".",",")+" €/L · "+date+" · fonte Mappa Carburanti / MIMIT";
- }catch(error){
-  fuelData=null;
-  el.textContent="Prezzo non disponibile automaticamente. Consulta i dati alla fonte.";
-  const link=document.createElement("a");
-  link.href="https://mappacarburanti.it/prezzi-benzina/bologna.html";
-  link.target="_blank";link.rel="noopener noreferrer";
-  link.textContent=" Prezzi benzina Bologna ↗";
-  link.style.color="#9bdcff";
-  el.appendChild(link);
-  console.warn("Prezzo Bologna:",error);
+ el.textContent="Caricamento prezzo benzina Bologna…";
+ for(const url of sources){
+  try{
+   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(12000)});
+   if(!response.ok)throw Error("HTTP "+response.status);
+   let html=await response.text();
+   if(url.includes("/get?")){const wrapper=JSON.parse(html);html=wrapper.contents||""}
+   const data=parse(html);
+   fuelData={price_eur_l:data.price};
+   el.textContent="⛽ Benzina Bologna: "+data.price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+data.date+(data.count?" · "+data.count+" distributori":"")+" · fonte Mappa Carburanti / MIMIT";
+   return;
+  }catch(error){console.warn("Fonte benzina non raggiungibile:",url,error)}
  }
+ fuelData=null;
+ el.textContent="Prezzo non disponibile automaticamente. ";
+ const link=document.createElement("a");
+ link.href=page;link.target="_blank";link.rel="noopener noreferrer";
+ link.textContent="Consulta il prezzo a Bologna ↗";link.style.color="#9bdcff";
+ el.appendChild(link);
 }
 loadBolognaFuel();
 $("go").onclick=async()=>{
