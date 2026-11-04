@@ -1,0 +1,11 @@
+{
+  "city": "Bologna",
+  "fuel": "Benzina",
+  "service": "self",
+  "price_eur_l": 1.995,
+  "stations": 111,
+  "extraction": "2026-11-02",
+  "updated_at": "2026-11-04T02:14:13+01:00",
+  "source": "Mappa Carburanti snapshot GitHub (dati MIMIT)",
+  "source_url": "https://raw.githubusercontent.com/slicevision/mappacarburanti-snapshot/main/snapshot/2026-11-02-83f9f1d5d832/citta/bologna.json"
+}
