@@ -99,21 +99,15 @@ def main():
     friendly_date = f"{weekdays[tomorrow.weekday()]} {tomorrow.day} {months[tomorrow.month - 1]}"
     fuel = None
     try:
-        req = urllib.request.Request(
-            "https://mappacarburanti.it/prezzi-benzina/bologna.html",
-            headers={"User-Agent": "Mozilla/5.0 MeteoScooterBologna"})
-        with urllib.request.urlopen(req, timeout=15) as response:
-            webpage = response.read().decode("utf-8", errors="replace")
-        text = re.sub(r"<[^>]*>", " ", webpage)
-        text = re.sub(r"\\s+", " ", html.unescape(text))
-        match = re.search(r"prezzo medio (?:della |del )?benzina (?:è(?: di)?|:)\\s*€?\\s*([0-9]+[.,][0-9]{2,3})\\s*/\\s*L", text, re.I)
-        if match:
-            price = float(match.group(1).replace(",", "."))
-            if 1 < price < 3.5:
-                date_match = re.search(r"(?:aggiornat[io] il|estrazione MIMIT del|Oggi)\\s*(\\d{4}-\\d{2}-\\d{2})", text, re.I)
-                fuel = {"price_eur_l": price, "extraction": date_match.group(1) if date_match else "data non indicata"}
-    except (OSError, ValueError) as error:
-        print("Prezzo carburante non disponibile:", error)
+        with open("docs/fuel-price.json", encoding="utf-8") as source:
+            data = json.load(source)
+        date = dt.date.fromisoformat(data["extraction"])
+        if 0 <= (now.date() - date).days <= 2 and 1 < float(data["price_eur_l"]) < 3.5:
+            fuel = data
+        else:
+            print("Prezzo benzina non recente: non incluso nell'email.")
+    except (OSError, ValueError, KeyError) as error:
+        print("Prezzo benzina non disponibile:", error)
     body = ""
     for item in planned:
         origin, destination = item["from"], item["to"]
