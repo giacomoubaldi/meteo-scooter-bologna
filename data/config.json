@@ -107,7 +107,7 @@
       "day": 3,
       "time": "18:00",
       "from": "fisica",
-      "to": "casa"
+      "to": "piscina"
     },
     {
       "id": "7513cad6-3c19-4694-965d-818284d0f30b",
@@ -128,6 +128,13 @@
       "day": 4,
       "time": "23:50",
       "from": "teatro",
+      "to": "casa"
+    },
+    {
+      "id": "56737c5f-a1d3-40be-b19a-cdfcebe8ed39",
+      "day": 3,
+      "time": "19:45",
+      "from": "piscina",
       "to": "casa"
     }
   ]
