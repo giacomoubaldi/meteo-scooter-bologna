@@ -27,13 +27,18 @@ table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px
 </details>
 
 <details class="card saved-stops"><summary>📍 Tappe salvate</summary><div id="regions"></div>
-<label>Nome nuova tappa</label><input id="name" placeholder="piscina">
-<label>Indirizzo</label><input id="address" placeholder="Via ..., Bologna">
-<button id="add">Aggiungi tappa</button>
-<p><small>Le tappe aggiunte restano in questo browser; l'email automatica usa Casa e Fisica.</small></p></details>
+<button id="openAddStop" type="button">➕ Aggiungi tappa</button></details>
 <dialog id="calDialog" aria-labelledby="calDialogTitle"><h2 id="calDialogTitle">➕ Aggiungi tragitto</h2><label>⭐ Percorso preferito (facoltativo)</label><select id="calFavorite"><option value="">Scegli un percorso salvato…</option></select><div class="grid"><div><label>Giorno</label><select id="calDay"></select></div><div><label>Ora</label><input id="calTime" type="time" value="09:00"></div><div><label>Da</label><select id="calFrom"></select></div><div><label>A</label><select id="calTo"></select></div></div>
 <div class="dialog-actions"><button id="calCancel" type="button">Annulla</button><button id="calSave" type="button">Salva tragitto</button></div>
 </dialog>
+<dialog id="stopDialog" aria-labelledby="stopDialogTitle">
+<h2 id="stopDialogTitle">📍 Aggiungi tappa</h2>
+<form id="stopForm">
+<label for="name">Nome nuova tappa</label><input id="name" name="stopName" placeholder="piscina" required maxlength="30" pattern="[a-zA-Z0-9_-]{2,30}">
+<label for="address">Indirizzo</label><input id="address" name="stopAddress" placeholder="Via ..., Bologna" required>
+<p id="stopError" role="alert" style="color:#ffb3b3"></p>
+<div class="dialog-actions"><button id="cancelStop" type="button">Annulla</button><button id="add" type="submit">Salva tappa</button></div>
+</form></dialog>
 <div class="commit-area"><button id="commitReload" type="button">💾 Commit and Reload</button><p id="syncStatus" aria-live="polite">Caricamento dati…</p></div>
 <dialog id="tokenDialog" aria-labelledby="tokenTitle"><form id="tokenForm" method="dialog"><h2 id="tokenTitle">🔑 Autorizza il commit</h2><p><small>Inserisci il token GitHub per salvare sul repository. Puoi scegliere di memorizzarlo nel gestore password del browser, se disponibile.</small></p><label for="githubUser">Utente GitHub</label><input id="githubUser" name="username" autocomplete="username" value="giacomoubaldi" required><label for="githubToken">Token GitHub</label><input id="githubToken" name="password" type="password" autocomplete="current-password" required><p id="tokenError" role="alert"></p><div class="dialog-actions"><button id="tokenCancel" type="button">Annulla</button><button id="tokenSubmit" type="submit">Conferma e salva</button></div></form></dialog>
 <p><small>Fonti: Open-Meteo, OpenStreetMap/Nominatim e OSRM. Stime, non radar in tempo reale. Durata scooter: 25 km/h + 3 min.</small></p>
@@ -178,12 +183,25 @@ function clothingAdvice(temp,wind,rain,prob){
  return message+".";
 }
 function fmt(x,n=0){return x==null?"n.d.":x.toFixed(n)}
-$("add").onclick=async()=>{
- let k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
- if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){alert("Inserisci nome e indirizzo della tappa");return}
- try{await geo(v);regions[k]=v;localStorage.setItem("regionsScooter",JSON.stringify(regions));render();queueSync();$("name").value="";$("address").value=""}
- catch(e){alert(e.message)}
-};
+$("openAddStop").onclick=()=>{$("stopError").textContent="";$("stopDialog").showModal();$("name").focus()};
+$("cancelStop").onclick=()=>$("stopDialog").close();
+$("stopForm").addEventListener("submit",async event=>{
+ event.preventDefault();
+ const k=$("name").value.trim().toLowerCase(),v=$("address").value.trim();
+ const error=$("stopError"),button=$("add");
+ error.textContent="";
+ if(!/^[a-z0-9_-]{2,30}$/.test(k)||!v){error.textContent="Inserisci un nome valido e un indirizzo.";return}
+ if(Object.hasOwn(regions,k)){error.textContent="Esiste già una tappa con questo nome.";return}
+ button.disabled=true;
+ try{
+  await geo(v);
+  regions[k]=v;
+  localStorage.setItem("regionsScooter",JSON.stringify(regions));
+  render();queueSync();
+  $("stopForm").reset();$("stopDialog").close();
+ }catch(e){error.textContent=e.message}
+ finally{button.disabled=false}
+});
 $("go").onclick=async()=>{
  let out=$("result");out.textContent="Calcolo percorso e previsioni…";
  try{
