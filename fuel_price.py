@@ -57,21 +57,17 @@ def calculate():
     # Usa il testo visibile della pagina, non i CSV dei distributori.
     # La pagina può avere più formulazioni della frase e spazi Unicode.
     text = text.replace("\u00a0", " ").replace("\u202f", " ")
+    # La pagina statica usa "Nell’estrazione MIMIT del YYYY-MM-DD a Bologna".
     date_match = re.search(
-        r"(?:Oggi\s+|aggiornat[io]\s+il\s+)(\d{4}-\d{2}-\d{2})", text, re.I
+        r"estrazione\s+MIMIT\s+del\s+(\d{4}-\d{2}-\d{2})", text, re.I
     )
     price_match = re.search(
         r"prezzo\s+medio\s+(?:della?|di)\s+benzina\s+è\s*(?:di\s*)?"
         r"€?\s*([0-9]+[.,][0-9]{2,3})\s*/\s*L", text, re.I
     )
     if not date_match or not price_match:
-        print("DIAGNOSTICA: HTML scaricato, lunghezza:", len(text), flush=True)
-        print("DIAGNOSTICA: titolo/testo iniziale:", repr(text[:1100]), flush=True)
-        print("DIAGNOSTICA: frasi contenenti 'benzina':",
-              repr([text[max(0,m.start()-100):m.start()+150]
-                    for m in list(re.finditer("benzina", text, re.I))[:5]]),
-              flush=True)
-        raise ValueError("Prezzo medio benzina Bologna o data non trovati nel testo HTML; controlla diagnostica nei log")
+        print("DIAGNOSTICA: testo HTML:", repr(text[:1500]), flush=True)
+        raise ValueError("Prezzo medio benzina Bologna o data non trovati nel testo HTML")
     date, price_text = date_match.group(1), price_match.group(1)
 
     price = float(price_text.replace(",", "."))
@@ -82,7 +78,7 @@ def calculate():
     if date_value > today or (today - date_value).days > 2:
         raise ValueError(f"Rilevazione non recente ({date}): JSON precedente conservato")
 
-    stations_match = re.search(r"su\s+(\d+)\s+distributori\s+monitorati", text, re.I)
+    stations_match = re.search(r"su\s+(\d+)\s+distributori", text, re.I)
     return {
         "city": "Bologna",
         "fuel": "Benzina",
