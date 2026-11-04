@@ -39,6 +39,75 @@ function renderCalendar(){
   });root.append(col);
  });
 }
+
+const weeklyRouteCache=new Map();
+$("calConsumption").addEventListener("click",async()=>{
+ const button=$("calConsumption"),out=$("calConsumptionResult");
+ out.hidden=false;out.textContent="Calcolo delle distanze stradali dei tragitti settimanali…";
+ button.disabled=true;
+ try{
+  const consumption=Number(fuelInput.value);
+  if(!Number.isFinite(consumption)||consumption<1||consumption>15)throw Error("Imposta un consumo valido tra 1 e 15 L/100 km nella sezione Benzina.");
+  const price=fuelData?.price_eur_l;
+  const byDay=Array(7).fill(0),failed=[];
+  const routes=new Map();
+  for(const trip of calendar){
+   if(!Number.isInteger(trip.day)||trip.day<0||trip.day>6)continue;
+   if(!regions[trip.from]||!regions[trip.to]){
+    failed.push(weekdays[trip.day]+": tappa mancante ("+trip.from+" → "+trip.to+")");continue;
+   }
+   const key=JSON.stringify([regions[trip.from],regions[trip.to]]);
+   if(!routes.has(key))routes.set(key,{from:trip.from,to:trip.to});
+  }
+  const distances=new Map();
+  for(const [key,route] of routes){
+   try{
+    if(!weeklyRouteCache.has(key)){
+     const a=await geo(regions[route.from]),b=await geo(regions[route.to]);
+     const url="https://router.project-osrm.org/route/v1/driving/"+a[1]+","+a[0]+";"+b[1]+","+b[0]+"?overview=false";
+     const data=await api(url,"OSRM (distanze calendario)");
+     const meters=Number(data.routes?.[0]?.distance);
+     if(!Number.isFinite(meters)||meters<0)throw Error("Distanza non valida");
+     weeklyRouteCache.set(key,meters/1000);
+    }
+    distances.set(key,weeklyRouteCache.get(key));
+   }catch(e){distances.set(key,null);failed.push(route.from+" → "+route.to+": "+e.message)}
+  }
+  for(const trip of calendar){
+   if(!Number.isInteger(trip.day)||trip.day<0||trip.day>6||!regions[trip.from]||!regions[trip.to])continue;
+   const km=distances.get(JSON.stringify([regions[trip.from],regions[trip.to]]));
+   if(km!=null)byDay[trip.day]+=km;
+  }
+  const total=byDay.reduce((a,b)=>a+b,0);
+  const euro=n=>n.toFixed(2).replace(".",",")+" €";
+  const fmt=n=>n.toFixed(2).replace(".",",");
+  const table=document.createElement("table");
+  const head=document.createElement("thead");head.innerHTML="<tr><th>Giorno</th><th>🛵 km</th><th>⛽ L</th><th>💶 €</th></tr>";table.append(head);
+  const tbody=document.createElement("tbody");
+  byDay.forEach((km,i)=>{
+   const tr=document.createElement("tr");
+   for(const val of [weekdays[i],fmt(km),fmt(km*consumption/100),price?euro(km*consumption/100*price):"n.d."]){
+    const td=document.createElement("td");td.textContent=val;tr.append(td);
+   }
+   tbody.append(tr);
+  });table.append(tbody);
+  const foot=document.createElement("tfoot"),tr=document.createElement("tr");
+  for(const val of ["Totale settimana",fmt(total),fmt(total*consumption/100),price?euro(total*consumption/100*price):"n.d."]){
+   const td=document.createElement("td");td.textContent=val;tr.append(td);
+  }
+  foot.append(tr);table.append(foot);
+  out.replaceChildren();
+  const title=document.createElement("h3");title.textContent="📊 Consumi settimanali";out.append(title);
+  const scroll=document.createElement("div");scroll.className="report-scroll";scroll.append(table);out.append(scroll);
+  const note=document.createElement("p");note.textContent="Consumo impostato: "+fmt(consumption)+" L/100 km. "+(price?"Prezzo benzina: "+price.toFixed(3).replace(".",",")+" €/L.":"Prezzo benzina aggiornato non disponibile: costo in euro non calcolato.");out.append(note);
+  if(failed.length){
+   const warning=document.createElement("p");warning.style.color="#ffb3b3";
+   warning.textContent="⚠️ "+failed.length+" percorso/i non calcolati: "+failed.join("; ")+". I totali sono parziali.";
+   out.append(warning);
+  }
+ }catch(e){out.textContent="Errore nel calcolo: "+e.message}
+ finally{button.disabled=false}
+});
 function resetEdit(){editingTrip=null;$("calSave").textContent="Salva tragitto";$("calDialogTitle").textContent="➕ Aggiungi tragitto";$("calDialog").close()}
 $("calOpen").onclick=()=>{
  editingTrip=null;renderCalendarSelectors();$("calFavorite").value="";
