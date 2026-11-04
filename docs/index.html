@@ -214,52 +214,41 @@ fuelInput.addEventListener("change",()=>{
 });
 async function loadBolognaFuel(){
  const el=$("fuelPrice");
- const page="https://www.opencarburanti.it/prezzi-carburanti/emilia-romagna/bologna/bologna";
- const url=page+"?nocache="+Date.now();
- const sources=[
-  url,
-  "https://api.allorigins.win/raw?url="+encodeURIComponent(url),
-  "https://corsproxy.io/?url="+encodeURIComponent(url),
-  "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(url)
+ const page="https://mappacarburanti.it/prezzi-benzina/bologna.html";
+ const source=page+"?t="+Date.now();
+ const urls=[
+  source,
+  "https://api.allorigins.win/raw?url="+encodeURIComponent(source),
+  "https://corsproxy.io/?url="+encodeURIComponent(source),
+  "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(source)
  ];
  el.textContent="⛽ Lettura prezzo benzina Bologna…";
- async function read(source){
-  const response=await fetch(source,{cache:"no-store",signal:AbortSignal.timeout(9000)});
+ async function read(url){
+  const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(9000)});
   if(!response.ok)throw Error("HTTP "+response.status);
-  const doc=new DOMParser().parseFromString(await response.text(),"text/html");
+  const html=await response.text();
+  const doc=new DOMParser().parseFromString(html,"text/html");
   const txt=(doc.body?.textContent||"").replace(/\s+/g," ");
-  const patterns=[
-   /la benzina (?:self(?:[\s-]*service)? )?a Bologna costa in media\s*([0-9]+[.,][0-9]{2,3})\s*euro\s*\/\s*L/i,
-   /la benzina self service costa in media\s*([0-9]+[.,][0-9]{2,3})\s*euro\s*\/\s*L/i,
-   /media Bologna\s+Benzina self\s*([0-9]+[.,][0-9]{2,3})/i,
-   /Benzina self\s*([0-9]+[.,][0-9]{2,3})/i
-  ];
-  let match;
-  for(const p of patterns){match=txt.match(p);if(match)break}
-  if(!match)throw Error("Testo del prezzo medio non trovato");
-  const price=Number(match[1].replace(",","."));
+  const m=txt.match(/nell.estrazione\s+MIMIT\s+del\s+(\d{4}-\d{2}-\d{2})\s+a\s+Bologna[\s\S]{0,250}?prezzo\s+medio\s+della\s+benzina\s+è\s*€?\s*([0-9]+[.,][0-9]{2,3})\s*\/\s*L/i)
+    ||txt.match(/nell.estrazione\s+MIMIT\s+del\s+(\d{4}-\d{2}-\d{2})[\s\S]{0,160}?prezzo\s+medio\s+del\s+benzina\s+a\s+Bologna\s+è\s*€?\s*([0-9]+[.,][0-9]{2,3})\s*\/\s*L/i);
+  if(!m)throw Error("Frase MIMIT del prezzo medio benzina non trovata");
+  const price=Number(m[2].replace(",","."));
   if(!(price>1&&price<3.5))throw Error("Prezzo non valido");
-  const dateMatch=txt.match(/aggiornat[oi]\s+(\d{2})\/(\d{2})\/(\d{4})/i)
-   ||txt.match(/ultimo aggiornamento:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-  const isoMatch=txt.match(/aggiornat[oi]\s+(\d{4}-\d{2}-\d{2})/i);
-  const date=dateMatch?dateMatch[3]+"-"+dateMatch[2]+"-"+dateMatch[1]:isoMatch?isoMatch[1]:null;
-  return {price,date};
+  return {date:m[1],price};
  }
- const attempts=await Promise.allSettled(sources.map(read));
- const valid=attempts.filter(r=>r.status==="fulfilled").map(r=>r.value).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
- const data=valid[0];
- if(data){
-  const age=data.date?Math.floor((Date.now()-new Date(data.date+"T00:00:00").getTime())/86400000):Infinity;
+ const results=await Promise.allSettled(urls.map(read));
+ const values=results.filter(x=>x.status==="fulfilled").map(x=>x.value).sort((a,b)=>b.date.localeCompare(a.date));
+ if(values.length){
+  const data=values[0];
+  const age=Math.floor((new Date().setHours(0,0,0,0)-new Date(data.date+"T00:00:00").getTime())/86400000);
   const fresh=age>=0&&age<=2;
   fuelData=fresh?{price_eur_l:data.price}:null;
-  el.textContent=(fresh?"⛽ Benzina self Bologna: ":"⚠️ Rilevazione non recente: ")+data.price.toFixed(3).replace(".",",")+" €/L · "+(data.date||"data sconosciuta")+(fresh?"":" · non usata per stimare il costo")+" · OpenCarburanti";
+  el.textContent=(fresh?"⛽ Benzina Bologna: ":"⚠️ Rilevazione non recente: ")+data.price.toFixed(3).replace(".",",")+" €/L · Estrazione MIMIT "+data.date+(fresh?"":" · non utilizzata per il costo")+" · fonte Mappa Carburanti";
  }else{
   fuelData=null;
-  el.textContent="Il browser non riesce ad accedere ai dati esterni (CORS/proxy non disponibili). ";
-  const link=document.createElement("a");
-  link.href=page;link.target="_blank";link.rel="noopener noreferrer";
-  link.textContent="Consulta OpenCarburanti ↗";link.style.color="#9bdcff";el.append(link);
-  console.warn("Recupero OpenCarburanti fallito:",attempts.map(x=>x.status==="rejected"?String(x.reason):"OK"));
+  el.textContent="Impossibile leggere l'HTML di Mappa Carburanti dal browser. ";
+  const link=document.createElement("a");link.href=page;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Apri la fonte ↗";link.style.color="#9bdcff";el.append(link);
+  console.warn("Accesso HTML Mappa Carburanti:",results.map(x=>x.status==="rejected"?String(x.reason):"OK"));
  }
 }
 loadBolognaFuel();
