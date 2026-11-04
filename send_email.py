@@ -99,14 +99,25 @@ def main():
     friendly_date = f"{weekdays[tomorrow.weekday()]} {tomorrow.day} {months[tomorrow.month - 1]}"
     fuel = None
     try:
-        with open("docs/fuel-price.json", encoding="utf-8") as source:
-            data = json.load(source)
-        date = dt.date.fromisoformat(data["extraction"])
-        if 0 <= (now.date() - date).days <= 2 and 1 < float(data["price_eur_l"]) < 3.5:
-            fuel = data
+        root = "https://raw.githubusercontent.com/slicevision/mappacarburanti-snapshot/main/snapshot/"
+        def get_json(url):
+            request = urllib.request.Request(url, headers={"User-Agent": "MeteoScooterBologna/1.0", "Cache-Control": "no-cache"})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                return json.load(response)
+        pointer = get_json(root + "current.json")
+        generation = str(pointer["generation"])
+        if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}-[a-fA-F0-9]+", generation):
+            raise ValueError("Generazione snapshot non valida")
+        data = get_json(root + generation + "/citta/bologna.json")
+        if data.get("generation") != generation:
+            raise ValueError("Generazione snapshot incoerente")
+        date = dt.date.fromisoformat(data["extracted_on"])
+        price = float(data["fuels"]["benzina"]["stats"]["avg"])
+        if 0 <= (now.date() - date).days <= 2 and 1 < price < 3.5:
+            fuel = {"price_eur_l": price, "extraction": date.isoformat()}
         else:
             print("Prezzo benzina non recente: non incluso nell'email.")
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, KeyError, TypeError) as error:
         print("Prezzo benzina non disponibile:", error)
     body = ""
     for item in planned:
