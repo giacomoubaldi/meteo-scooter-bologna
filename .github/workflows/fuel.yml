@@ -1,0 +1,26 @@
+name: Aggiorna prezzo benzina Bologna
+on:
+  schedule:
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Scarica e calcola media comunale MIMIT
+        run: python fuel_price.py
+      - name: Pubblica dati aggiornati
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/fuel-price.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Aggiorna prezzo benzina Bologna"
+            git push
+          fi
