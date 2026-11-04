@@ -212,11 +212,40 @@ fuelInput.addEventListener("change",()=>{
  if(!Number.isFinite(n)||n<1||n>15){alert("Inserisci un consumo tra 1 e 15 L/100 km.");fuelInput.value="4";return}
  localStorage.setItem("scooterConsumption",String(n));
 });
-fetch("fuel-price.json?ts="+Date.now()).then(r=>{if(!r.ok)throw Error("Dati non disponibili");return r.json()}).then(data=>{
- if(!(data.price_eur_l>0))throw Error("Prezzo non valido");
- fuelData=data;
- $("fuelPrice").textContent="⛽ Benzina self: "+data.price_eur_l.toFixed(3).replace(".",",")+" €/L · "+data.stations+" distributori · Rilevazione: "+data.extraction;
-}).catch(()=>$("fuelPrice").textContent="Prezzo medio di Bologna non ancora disponibile. Riprova dopo il primo aggiornamento.");
+async function loadBolognaFuel(){
+ const el=$("fuelPrice");
+ const url="https://mappacarburanti.it/api/prezzi/citta/bologna.json";
+ try{
+  const response=await fetch(url+"?t="+Date.now(),{cache:"no-store"});
+  if(!response.ok)throw Error("HTTP "+response.status);
+  const payload=await response.json();
+  const number=v=>{const n=Number(typeof v==="string"?v.replace(",","."):v);return Number.isFinite(n)&&n>1&&n<3.5?n:null};
+  const chooseAverage=obj=>{
+   if(!obj||typeof obj!=="object")return null;
+   for(const key of ["benzina_self_media","benzinaSelfMedia","prezzo_medio_benzina","prezzoMedioBenzina","benzina_media","benzina"]){
+    const v=obj[key];
+    if(v&&typeof v==="object"){
+     for(const sub of ["self","media_self","prezzo_medio","media","average","avg"])if(number(v[sub]))return number(v[sub]);
+    }else if(number(v))return number(v);
+   }
+   for(const key of ["medie","medie_carburanti","prezzi_medi","prezzi","carburanti","fuels","averages","summary","riepilogo","data"]){
+    const child=obj[key];
+    if(child&&typeof child==="object"&&!Array.isArray(child)){const found=chooseAverage(child);if(found)return found}
+   }
+   return null;
+  };
+  const price=chooseAverage(payload);
+  if(!price)throw Error("Formato API non riconosciuto");
+  fuelData={price_eur_l:price};
+  const date=payload.data_aggiornamento||payload.updated_at||payload.data_estrazione||payload.date||"ultima rilevazione disponibile";
+  el.textContent="⛽ Benzina self Bologna: "+price.toFixed(3).replace(".",",")+" €/L · "+date+" · fonte: Mappa Carburanti / MIMIT";
+ }catch(error){
+  fuelData=null;
+  el.textContent="Prezzo benzina non disponibile in questo momento (API o accesso CORS).";
+  console.warn("Carburante Bologna:",error);
+ }
+}
+loadBolognaFuel();
 $("go").onclick=async()=>{
  let out=$("result");out.textContent="Calcolo percorso e previsioni…";
  try{
