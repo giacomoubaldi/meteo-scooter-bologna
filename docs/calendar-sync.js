@@ -31,21 +31,27 @@ function renderCalendar(){
    const card=document.createElement("div");card.className="calendar-trip";
    const label=document.createElement("div");label.textContent=t.time+" · "+t.from+" → "+t.to;card.append(label);
    const edit=document.createElement("button");edit.textContent="✏️";edit.title="Modifica";edit.onclick=()=>{
-    editingTrip=t.id;$("calDay").value=t.day;$("calTime").value=t.time;$("calFrom").value=t.from;$("calTo").value=t.to;
-    $("calSave").textContent="Salva modifica";$("calCancel").hidden=false;
+    editingTrip=t.id;renderCalendarSelectors();$("calDay").value=t.day;$("calTime").value=t.time;$("calFrom").value=t.from;$("calTo").value=t.to;$("calFavorite").value="";
+    $("calDialogTitle").textContent="✏️ Modifica tragitto";$("calSave").textContent="Salva modifica";$("calDialog").showModal();
    };
    const remove=document.createElement("button");remove.textContent="×";remove.title="Elimina";remove.onclick=()=>{calendar=calendar.filter(x=>x.id!==t.id);persistCalendar()};
    card.append(edit,remove);col.append(card);
   });root.append(col);
  });
 }
-function resetEdit(){editingTrip=null;$("calSave").textContent="Aggiungi tragitto";$("calCancel").hidden=true}
+function resetEdit(){editingTrip=null;$("calSave").textContent="Salva tragitto";$("calDialogTitle").textContent="➕ Aggiungi tragitto";$("calDialog").close()}
+$("calOpen").onclick=()=>{
+ editingTrip=null;renderCalendarSelectors();$("calFavorite").value="";
+ $("calDay").value=(new Date().getDay()+6)%7;$("calTime").value="09:00";
+ $("calDialogTitle").textContent="➕ Aggiungi tragitto";$("calSave").textContent="Salva tragitto";$("calDialog").showModal();
+};
 $("calCancel").onclick=resetEdit;
+$("calDialog").addEventListener("close",()=>{editingTrip=null});
 $("calSave").onclick=()=>{
  const trip={id:editingTrip||crypto.randomUUID(),day:Number($("calDay").value),time:$("calTime").value,from:$("calFrom").value,to:$("calTo").value};
  if(!trip.time||!regions[trip.from]||!regions[trip.to]){alert("Completa i campi del tragitto");return}
  if(editingTrip)calendar=calendar.map(t=>t.id===editingTrip?trip:t);else calendar.push(trip);
- resetEdit();persistCalendar();
+ persistCalendar();resetEdit();
 };
 renderCalendarSelectors();
 renderCalendar();
