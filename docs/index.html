@@ -215,51 +215,64 @@ fuelInput.addEventListener("change",()=>{
 async function loadBolognaFuel(){
  const el=$("fuelPrice");
  const page="https://www.opencarburanti.it/prezzi-carburanti/emilia-romagna/bologna/bologna";
- const url=page+"?nocache="+Date.now();
+ const key="meteoScooterBolognaFuelV1";
+ const dateAge=date=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date||""))return Infinity;
+  const d=new Date(date+"T00:00:00");
+  return Math.floor((new Date().setHours(0,0,0,0)-d.getTime())/86400000);
+ };
+ const display=(data,fromCache)=>{
+  const age=dateAge(data.date);
+  const fresh=age>=0&&age<=2;
+  fuelData=fresh?{price_eur_l:data.price}:null;
+  el.textContent=(fresh?"⛽ Benzina self Bologna: ":"⚠️ Prezzo non aggiornato: ")+data.price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+(data.date||"non indicata")+(fromCache?" · ultimo valore salvato nel browser":"")+(fresh?"":" · escluso dalla stima del costo")+" · OpenCarburanti";
+ };
+ let cached=null;
+ try{
+  const saved=JSON.parse(localStorage.getItem(key)||"null");
+  if(saved&&saved.price>1&&saved.price<3.5){cached=saved;display(saved,true)}
+ }catch(error){console.warn("Cache benzina non leggibile",error)}
+ if(!cached)el.textContent="⛽ Recupero prezzo benzina Bologna…";
+ const url=page+"?t="+Date.now();
  const sources=[
   url,
   "https://api.allorigins.win/raw?url="+encodeURIComponent(url),
   "https://corsproxy.io/?url="+encodeURIComponent(url),
   "https://api.codetabs.com/v1/proxy?quest="+encodeURIComponent(url)
  ];
- el.textContent="⛽ Lettura prezzo benzina Bologna…";
  async function read(source){
-  const response=await fetch(source,{cache:"no-store",signal:AbortSignal.timeout(9000)});
+  const response=await fetch(source,{cache:"no-store",signal:AbortSignal.timeout(8000)});
   if(!response.ok)throw Error("HTTP "+response.status);
   const doc=new DOMParser().parseFromString(await response.text(),"text/html");
   const txt=(doc.body?.textContent||"").replace(/\s+/g," ");
   const patterns=[
-   /la benzina (?:self(?:[\s-]*service)? )?a Bologna costa in media\s*([0-9]+[.,][0-9]{2,3})\s*euro\s*\/\s*L/i,
-   /la benzina self service costa in media\s*([0-9]+[.,][0-9]{2,3})\s*euro\s*\/\s*L/i,
-   /media Bologna\s+Benzina self\s*([0-9]+[.,][0-9]{2,3})/i,
-   /Benzina self\s*([0-9]+[.,][0-9]{2,3})/i
+   /la benzina a Bologna costa in media\s*([12][.,]\d{2,3})\s*euro\s*\/\s*L/i,
+   /benzina self.{0,100}?([12][.,]\d{2,3})\s*€?\s*\/\s*L/i,
+   /media self\s*([12][.,]\d{2,3})/i
   ];
   let match;
-  for(const p of patterns){match=txt.match(p);if(match)break}
-  if(!match)throw Error("Testo del prezzo medio non trovato");
+  for(const pattern of patterns){match=txt.match(pattern);if(match)break}
+  if(!match)throw Error("Prezzo medio benzina non trovato");
   const price=Number(match[1].replace(",","."));
   if(!(price>1&&price<3.5))throw Error("Prezzo non valido");
-  const dateMatch=txt.match(/aggiornat[oi]\s+(\d{2})\/(\d{2})\/(\d{4})/i)
-   ||txt.match(/ultimo aggiornamento:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-  const isoMatch=txt.match(/aggiornat[oi]\s+(\d{4}-\d{2}-\d{2})/i);
-  const date=dateMatch?dateMatch[3]+"-"+dateMatch[2]+"-"+dateMatch[1]:isoMatch?isoMatch[1]:null;
-  return {price,date};
+  const it=txt.match(/aggiornato\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  const iso=txt.match(/aggiornato\s*(\d{4}-\d{2}-\d{2})/i);
+  const date=it?it[3]+"-"+it[2]+"-"+it[1]:iso?iso[1]:null;
+  return {price,date,savedAt:Date.now()};
  }
- const attempts=await Promise.allSettled(sources.map(read));
- const valid=attempts.filter(r=>r.status==="fulfilled").map(r=>r.value).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
- const data=valid[0];
+ const results=await Promise.allSettled(sources.map(read));
+ const values=results.filter(x=>x.status==="fulfilled").map(x=>x.value).sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+ const data=values[0];
  if(data){
-  const age=data.date?Math.floor((Date.now()-new Date(data.date+"T00:00:00").getTime())/86400000):Infinity;
-  const fresh=age>=0&&age<=2;
-  fuelData=fresh?{price_eur_l:data.price}:null;
-  el.textContent=(fresh?"⛽ Benzina self Bologna: ":"⚠️ Rilevazione non recente: ")+data.price.toFixed(3).replace(".",",")+" €/L · "+(data.date||"data sconosciuta")+(fresh?"":" · non usata per stimare il costo")+" · OpenCarburanti";
- }else{
+  if(!cached||dateAge(data.date)<=dateAge(cached.date)){
+   try{localStorage.setItem(key,JSON.stringify(data))}catch(error){console.warn("Cache benzina non scrivibile",error)}
+   display(data,false);
+  }
+ }else if(!cached){
   fuelData=null;
-  el.textContent="Il browser non riesce ad accedere ai dati esterni (CORS/proxy non disponibili). ";
-  const link=document.createElement("a");
-  link.href=page;link.target="_blank";link.rel="noopener noreferrer";
+  el.textContent="Prezzo non recuperabile dal browser (proxy/CORS non disponibili). ";
+  const link=document.createElement("a");link.href=page;link.target="_blank";link.rel="noopener noreferrer";
   link.textContent="Consulta OpenCarburanti ↗";link.style.color="#9bdcff";el.append(link);
-  console.warn("Recupero OpenCarburanti fallito:",attempts.map(x=>x.status==="rejected"?String(x.reason):"OK"));
  }
 }
 loadBolognaFuel();
