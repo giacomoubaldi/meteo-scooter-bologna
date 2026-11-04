@@ -234,19 +234,21 @@ async function loadBolognaFuel(){
   const count=(text.match(/su\s+(\d+)\s+distributori/i)||[])[1];
   return {price,date,count};
  }
- el.textContent="Caricamento prezzo benzina Bologna…";
- for(const url of sources){
+ el.textContent="Ricerca prezzo benzina Bologna…";
+ const attempts=sources.map(async url=>{
   try{
-   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(12000)});
+   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(5000)});
    if(!response.ok)throw Error("HTTP "+response.status);
    let html=await response.text();
    if(url.includes("/get?")){const wrapper=JSON.parse(html);html=wrapper.contents||""}
    const data=parse(html);
    fuelData={price_eur_l:data.price};
    el.textContent="⛽ Benzina Bologna: "+data.price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+data.date+(data.count?" · "+data.count+" distributori":"")+" · fonte Mappa Carburanti / MIMIT";
-   return;
-  }catch(error){console.warn("Fonte benzina non raggiungibile:",url,error)}
- }
+   return true;
+  }catch(error){console.warn("Fonte benzina non raggiungibile:",url,error);return false}
+ });
+ await Promise.allSettled(attempts);
+ if(fuelData)return;
  fuelData=null;
  el.textContent="Prezzo non disponibile automaticamente. ";
  const link=document.createElement("a");
