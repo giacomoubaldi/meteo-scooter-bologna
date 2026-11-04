@@ -54,25 +54,25 @@ def calculate():
     parser.feed(download())
     text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts)))
 
-    # Frase principale: "Oggi YYYY-MM-DD a Bologna ... prezzo medio della benzina è di € 1.981/L"
-    pattern = (
-        r"Oggi\s+(\d{4}-\d{2}-\d{2})\s+a\s+Bologna\b"
-        r"[\s\S]{0,260}?prezzo\s+medio\s+della\s+benzina\s+è\s+(?:di\s+)?"
-        r"€?\s*([0-9]+[.,][0-9]{2,3})\s*/\s*L"
+    # Usa il testo visibile della pagina, non i CSV dei distributori.
+    # La pagina può avere più formulazioni della frase e spazi Unicode.
+    text = text.replace("\u00a0", " ").replace("\u202f", " ")
+    date_match = re.search(
+        r"(?:Oggi\s+|aggiornat[io]\s+il\s+)(\d{4}-\d{2}-\d{2})", text, re.I
     )
-    match = re.search(pattern, text, flags=re.IGNORECASE)
-    if not match:
-        # Formato alternativo: data in intestazione, prezzo nella sezione "Benzina a Bologna".
-        date_match = re.search(r"aggiornati?\s+il\s+(\d{4}-\d{2}-\d{2})", text, re.I)
-        price_match = re.search(
-            r"Oggi\s+a\s+Bologna\s+il\s+prezzo\s+medio\s+del(?:la)?\s+benzina\s+è\s*"
-            r"€?\s*([0-9]+[.,][0-9]{2,3})\s*/\s*L", text, re.I
-        )
-        if not date_match or not price_match:
-            raise ValueError("Prezzo medio benzina Bologna o data non trovati nel testo HTML")
-        date, price_text = date_match.group(1), price_match.group(1)
-    else:
-        date, price_text = match.group(1), match.group(2)
+    price_match = re.search(
+        r"prezzo\s+medio\s+(?:della?|di)\s+benzina\s+è\s*(?:di\s*)?"
+        r"€?\s*([0-9]+[.,][0-9]{2,3})\s*/\s*L", text, re.I
+    )
+    if not date_match or not price_match:
+        print("DIAGNOSTICA: HTML scaricato, lunghezza:", len(text), flush=True)
+        print("DIAGNOSTICA: titolo/testo iniziale:", repr(text[:1100]), flush=True)
+        print("DIAGNOSTICA: frasi contenenti 'benzina':",
+              repr([text[max(0,m.start()-100):m.start()+150]
+                    for m in list(re.finditer("benzina", text, re.I))[:5]]),
+              flush=True)
+        raise ValueError("Prezzo medio benzina Bologna o data non trovati nel testo HTML; controlla diagnostica nei log")
+    date, price_text = date_match.group(1), price_match.group(1)
 
     price = float(price_text.replace(",", "."))
     if not 1.0 <= price <= 3.5:
