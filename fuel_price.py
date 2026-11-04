@@ -6,6 +6,7 @@ import pathlib
 import re
 import time
 import urllib.request
+import urllib.parse
 from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
 
@@ -34,13 +35,29 @@ class TextExtractor(HTMLParser):
 
 def download():
     for attempt in range(1, 4):
+        # URL sempre diverso per evitare copie HTML memorizzate nelle cache.
+        query = urllib.parse.urlencode({"_refresh": time.time_ns()})
+        url = URL + "?" + query
         try:
             req = urllib.request.Request(
-                URL,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; MeteoScooterBologna/1.0)",
-                         "Accept": "text/html,application/xhtml+xml"},
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "it-IT,it;q=0.9,en;q=0.5",
+                    "Cache-Control": "no-cache, no-store, max-age=0",
+                    "Pragma": "no-cache",
+                },
             )
+            print(f"Richiesta HTML (tentativo {attempt}/3): {url}", flush=True)
             with urllib.request.urlopen(req, timeout=25) as response:
+                print(
+                    f"HTTP {response.status}; URL finale: {response.url}; "
+                    f"Age: {response.headers.get('Age', '-')}; "
+                    f"Cache: {response.headers.get('CF-Cache-Status', '-')}; "
+                    f"Last-Modified: {response.headers.get('Last-Modified', '-')}",
+                    flush=True,
+                )
                 return response.read().decode("utf-8", errors="replace")
         except (OSError, TimeoutError) as exc:
             print(f"Download HTML tentativo {attempt}/3 fallito: {exc}", flush=True)
@@ -69,6 +86,7 @@ def calculate():
         print("DIAGNOSTICA: testo HTML:", repr(text[:1500]), flush=True)
         raise ValueError("Prezzo medio benzina Bologna o data non trovati nel testo HTML")
     date, price_text = date_match.group(1), price_match.group(1)
+    print(f"Rilevazione ricevuta dal sito: {date}; prezzo: {price_text} €/L", flush=True)
 
     price = float(price_text.replace(",", "."))
     if not 1.0 <= price <= 3.5:
