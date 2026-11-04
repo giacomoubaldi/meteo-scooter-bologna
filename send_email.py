@@ -7,6 +7,7 @@ import json
 import urllib.request
 import urllib.parse
 from email.message import EmailMessage
+from pathlib import Path
 from meteo_core import TZ, REGIONS, evaluate, advice
 
 def trip(title, origin, destination, time, day):
@@ -40,7 +41,7 @@ def clothing_advice(temp, wind, rain, prob):
     if (prob is not None and prob >= 35) or (rain is not None and rain > 0): msg += "; 🌧️ porta uno strato impermeabile"
     return msg + "."
 
-def trip_result(title, origin, destination, time, result):
+def trip_result(title, origin, destination, time, result, fuel=None):
     def fmt(value, unit="", digits=0):
         return "n.d." if value is None else f"{value:.{digits}f}{unit}"
     rows = ""
@@ -58,12 +59,18 @@ def trip_result(title, origin, destination, time, result):
     clothing = clothing_advice(avg_temp, max_wind, result["max_rain_hour"], result["max_probability"])
     headers = ("Punto", "Ora", "Tempo", "Temperatura", "Prob. pioggia", "Pioggia")
     head = "".join("<th style='padding:9px'>" + h + "</th>" for h in headers)
+    fuel_note = ""
+    if fuel:
+        liters = result["distance_km"] * 0.04
+        cost = liters * fuel["price_eur_l"]
+        fuel_note = f"<p>⛽ Consumo stimato: {liters:.2f} L · 💶 Costo: {cost:.2f} € (4 L/100 km)</p>"
     return (
         f"<h2 style='color:#153b60'>🛵 {html.escape(title)} — {html.escape(time)}</h2>"
         f"<p>{html.escape(origin)} → {html.escape(destination)}: {result['distance_km']} km, circa {result['duration_minutes']} minuti.</p>"
         "<div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse;font-size:14px'>"
         f"<thead><tr style='background:#e7f1fa;color:#153b60'>{head}</tr></thead><tbody>{rows}</tbody></table></div>"
-        f"<p><strong>🌦️ Rischio pioggia:</strong> {html.escape(advice(result))}</p>"
+        + fuel_note
+        + f"<p><strong>🌦️ Rischio pioggia:</strong> {html.escape(advice(result))}</p>"
         f"<p><strong>👕 Come vestirsi:</strong> {html.escape(clothing)}</p>"
         f"<p style='font-size:13px;color:#53657b'>Controllo partenze ±30 min: probabilità massima {fmt(result['max_probability'], '%')}, "
         f"pioggia massima {fmt(result['max_rain_hour'], ' mm/h', 2)}, vento massimo {fmt(result['max_wind'], ' km/h')}.</p>"
@@ -90,6 +97,13 @@ def main():
     weekdays = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
     months = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre")
     friendly_date = f"{weekdays[tomorrow.weekday()]} {tomorrow.day} {months[tomorrow.month - 1]}"
+    fuel = None
+    try:
+        fuel = json.loads(Path("docs/fuel-price.json").read_text(encoding="utf-8"))
+        if not isinstance(fuel.get("price_eur_l"), (int, float)) or fuel["price_eur_l"] <= 0:
+            fuel = None
+    except (OSError, ValueError, TypeError):
+        pass
     body = ""
     for item in planned:
         origin, destination = item["from"], item["to"]
@@ -97,7 +111,9 @@ def main():
             raise ValueError("Tappa non presente nel calendario: " + origin + " / " + destination)
         departure = dt.datetime.combine(tomorrow, dt.time.fromisoformat(item["time"]), tzinfo=TZ)
         result = evaluate(regions[origin], regions[destination], departure)
-        body += trip_result(f"{origin} → {destination}", origin, destination, item["time"], result)
+        body += trip_result(f"{origin} → {destination}", origin, destination, item["time"], result, fuel)
+    if fuel:
+        body = f"<p><strong>⛽ Benzina self Bologna:</strong> {fuel['price_eur_l']:.3f} €/L · Rilevazione {html.escape(str(fuel.get('extraction', 'n.d.')))}.</p>" + body
     if not planned:
         body = "<p>Nessun tragitto previsto nel calendario per domani.</p>"
     sender = os.environ["GMAIL_USER"]
