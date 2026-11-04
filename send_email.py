@@ -120,12 +120,14 @@ def main():
     except (OSError, ValueError, KeyError, TypeError) as error:
         print("Prezzo benzina non disponibile:", error)
     body = ""
+    total_km = 0.0
     for item in planned:
         origin, destination = item["from"], item["to"]
         if origin not in regions or destination not in regions:
             raise ValueError("Tappa non presente nel calendario: " + origin + " / " + destination)
         departure = dt.datetime.combine(tomorrow, dt.time.fromisoformat(item["time"]), tzinfo=TZ)
         result = evaluate(regions[origin], regions[destination], departure)
+        total_km += float(result["distance_km"])
         body += trip_result(f"{origin} → {destination}", origin, destination, item["time"], result, fuel)
     if not planned:
         body = "<p>Nessun tragitto previsto nel calendario per domani.</p>"
@@ -134,6 +136,19 @@ def main():
                      f" · {fuel['stations']} distributori · Rilevazione {html.escape(fuel['extraction'])}.</p>")
     else:
         fuel_info = "<h2>⛽ Benzina a Bologna</h2><p>Prezzo aggiornato non disponibile: stima del costo carburante omessa.</p>"
+    if planned:
+        total_liters = total_km * 0.04  # Coerente con il consumo dei singoli tragitti: 4 L/100 km
+        daily_summary = (
+            "<div style='background:#e7f1fa;padding:14px 18px;border-radius:12px;color:#153b60'>"
+            "<h2 style='margin-top:0'>📊 Totale della giornata</h2>"
+            f"<p>🛵 <strong>{total_km:.1f} km</strong> · ⛽ <strong>{total_liters:.2f} L</strong>"
+        )
+        if fuel:
+            daily_summary += f" · 💶 <strong>{total_liters * fuel['price_eur_l']:.2f} €</strong>"
+        else:
+            daily_summary += " · 💶 Costo non disponibile (prezzo benzina non aggiornato)"
+        daily_summary += "</p><small>Consumo stimato: 4 L/100 km; somma dei tragitti previsti.</small></div>"
+        body = daily_summary + body
     body = fuel_info + body
     sender = os.environ["GMAIL_USER"]
     password = os.environ["GMAIL_APP_PASSWORD"]
