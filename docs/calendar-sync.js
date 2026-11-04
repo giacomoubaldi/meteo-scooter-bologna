@@ -61,10 +61,16 @@ let remoteSha=null,dirty=false,loadingRemote=false;
 function queueSync(){if(!loadingRemote){dirty=true;$("syncStatus").textContent="Modifiche da salvare: premi Commit and Reload."}}
 function b64Encode(value){return btoa(Array.from(new TextEncoder().encode(value),b=>String.fromCharCode(b)).join(""))}
 function b64Decode(value){return new TextDecoder().decode(Uint8Array.from(atob(value.replace(/\s/g,"")),c=>c.charCodeAt(0)))}
-async function getConfig(){
- const r=await fetch(apiFile+"?nocache="+Date.now(),{cache:"no-store"});
- if(!r.ok)throw Error("Lettura GitHub: HTTP "+r.status);
- const file=await r.json();
+const rawConfig="https://raw.githubusercontent.com/giacomoubaldi/meteo-scooter-bologna/main/data/config.json";
+async function getConfig(token=null){
+ if(!token){
+  const response=await fetch(rawConfig+"?nocache="+Date.now(),{cache:"no-store"});
+  if(!response.ok)throw Error("Lettura file pubblico: HTTP "+response.status);
+  return {sha:null,data:await response.json()};
+ }
+ const response=await fetch(apiFile,{headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json"},cache:"no-store"});
+ if(!response.ok)throw Error("Lettura autenticata GitHub: HTTP "+response.status);
+ const file=await response.json();
  return {sha:file.sha,data:JSON.parse(b64Decode(file.content))};
 }
 function applyConfig(data){
@@ -91,8 +97,8 @@ $("tokenForm").addEventListener("submit",async event=>{
  const button=$("tokenSubmit");button.disabled=true;
  $("tokenError").textContent="";
  try{
-  const latest=await getConfig();
-  if(latest.sha!==remoteSha)throw Error("I dati sono cambiati su un altro dispositivo. Ricarica prima di salvare.");
+  const latest=await getConfig(token);
+  if(remoteSha&&latest.sha!==remoteSha)throw Error("I dati sono cambiati su un altro dispositivo. Ricarica prima di salvare.");
   const payload={tappe:regions,favorites,calendar};
   const r=await fetch(apiFile,{method:"PUT",headers:{"Authorization":"Bearer "+token,"Accept":"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({message:"Update scooter calendar, stops and favorites",content:b64Encode(JSON.stringify(payload,null,2)),sha:latest.sha,branch:"main"})});
   if(!r.ok)throw Error("Commit non riuscito: HTTP "+r.status);
