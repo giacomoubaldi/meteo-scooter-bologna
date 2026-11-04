@@ -7,7 +7,6 @@ import json
 import urllib.request
 import urllib.parse
 from email.message import EmailMessage
-from pathlib import Path
 from meteo_core import TZ, REGIONS, evaluate, advice
 
 def trip(title, origin, destination, time, day):
@@ -99,11 +98,35 @@ def main():
     friendly_date = f"{weekdays[tomorrow.weekday()]} {tomorrow.day} {months[tomorrow.month - 1]}"
     fuel = None
     try:
-        fuel = json.loads(Path("docs/fuel-price.json").read_text(encoding="utf-8"))
-        if not isinstance(fuel.get("price_eur_l"), (int, float)) or fuel["price_eur_l"] <= 0:
-            fuel = None
-    except (OSError, ValueError, TypeError):
-        pass
+        req = urllib.request.Request("https://mappacarburanti.it/api/prezzi/citta/bologna.json",
+                                     headers={"User-Agent": "MeteoScooterBologna/1.0"})
+        with urllib.request.urlopen(req, timeout=12) as response:
+            payload = json.load(response)
+        def find_average(data):
+            if not isinstance(data, dict):
+                return None
+            for key in ("benzina_self_media", "benzinaSelfMedia", "prezzo_medio_benzina",
+                        "prezzoMedioBenzina", "benzina_media", "benzina"):
+                value = data.get(key)
+                if isinstance(value, dict):
+                    value = next((value[k] for k in ("self", "media_self", "prezzo_medio", "media", "average", "avg") if k in value), None)
+                try:
+                    number = float(str(value).replace(",", "."))
+                    if 1 < number < 3.5:
+                        return number
+                except (ValueError, TypeError):
+                    pass
+            for key in ("medie", "medie_carburanti", "prezzi_medi", "prezzi",
+                        "carburanti", "fuels", "averages", "summary", "riepilogo", "data"):
+                found = find_average(data.get(key))
+                if found:
+                    return found
+            return None
+        price = find_average(payload)
+        if price:
+            fuel = {"price_eur_l": price, "extraction": str(payload.get("data_aggiornamento") or payload.get("updated_at") or payload.get("date") or "ultima rilevazione")}
+    except (OSError, ValueError, TypeError) as error:
+        print("Prezzo carburante non disponibile:", error)
     body = ""
     for item in planned:
         origin, destination = item["from"], item["to"]
