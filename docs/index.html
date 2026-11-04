@@ -214,26 +214,35 @@ fuelInput.addEventListener("change",()=>{
 });
 async function loadBolognaFuel(){
  const el=$("fuelPrice");
+ const root="https://raw.githubusercontent.com/slicevision/mappacarburanti-snapshot/main/snapshot/";
  try{
-  const response=await fetch("fuel-price.json?t="+Date.now(),{cache:"no-store",signal:AbortSignal.timeout(8000)});
-  if(!response.ok)throw Error("HTTP "+response.status);
-  const data=await response.json();
-  const price=Number(data.price_eur_l);
-  const rawDate=String(data.extraction||"");
-  const date=(rawDate.match(/\d{4}-\d{2}-\d{2}/)||[])[0];
-  if(!(price>1&&price<3.5)||!date)throw Error("Prezzo o data non validi");
+  el.textContent="⛽ Caricamento prezzo benzina Bologna…";
+  const fetchJSON=async url=>{
+   const response=await fetch(url,{cache:"no-store",signal:AbortSignal.timeout(12000)});
+   if(!response.ok)throw Error("HTTP "+response.status);
+   return response.json();
+  };
+  const pointer=await fetchJSON(root+"current.json?t="+Date.now());
+  const generation=String(pointer.generation||"");
+  if(!/^\d{4}-\d{2}-\d{2}-[a-f0-9]+$/i.test(generation))throw Error("Generazione snapshot non valida");
+  const data=await fetchJSON(root+generation+"/citta/bologna.json");
+  if(data.generation!==generation)throw Error("Generazione incoerente");
+  const price=Number(data.fuels?.benzina?.stats?.avg);
+  const date=String(data.extracted_on||data.date||"");
+  if(!(price>1&&price<3.5)||!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error("Prezzo o data non validi");
   const today=new Date();today.setHours(0,0,0,0);
   const age=Math.floor((today.getTime()-new Date(date+"T00:00:00").getTime())/86400000);
   const fresh=age>=0&&age<=2;
   fuelData=fresh?{price_eur_l:price}:null;
-  el.textContent=(fresh?"⛽ Benzina self Bologna: ":"⚠️ Prezzo non aggiornato: ")+price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+date+(data.stations?" · "+data.stations+" distributori":"")+(fresh?"":" · non utilizzato per la stima del costo")+" · fonte MIMIT";
+  const stations=data.fuels?.benzina?.stats?.count;
+  el.textContent=(fresh?"⛽ Benzina self Bologna: ":"⚠️ Prezzo non aggiornato: ")+price.toFixed(3).replace(".",",")+" €/L · Rilevazione "+date+(stations?" · "+stations+" distributori":"")+(fresh?"":" · non utilizzato per la stima del costo")+" · fonte MIMIT via Mappa Carburanti";
  }catch(error){
   fuelData=null;
-  el.textContent="Prezzo MIMIT non ancora disponibile. Il workflow aggiorna i dati alle 08:00, 09:00 e 10:00. ";
+  el.textContent="Prezzo benzina non disponibile. ";
   const link=document.createElement("a");
-  link.href="https://www.mimit.gov.it/it/open-data/elenco-dataset/carburanti-prezzi-praticati-e-anagrafica-degli-impianti";
-  link.target="_blank";link.rel="noopener noreferrer";link.textContent="Fonte MIMIT ↗";link.style.color="#9bdcff";el.append(link);
-  console.warn("Prezzo benzina MIMIT:",error);
+  link.href="https://mappacarburanti.it/prezzi-benzina/bologna.html";
+  link.target="_blank";link.rel="noopener noreferrer";link.textContent="Apri la fonte ↗";link.style.color="#9bdcff";el.append(link);
+  console.warn("Prezzo benzina snapshot:",error);
  }
 }
 loadBolognaFuel();
