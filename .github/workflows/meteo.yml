@@ -15,6 +15,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Aggiorna prezzo benzina da OpenCarburanti
+        continue-on-error: true
         run: |
           python fetch_fuel_page.py
           if ! git diff --quiet -- docs/fuel-price.json || [ -n "$(git ls-files --others --exclude-standard docs/fuel-price.json)" ]; then
