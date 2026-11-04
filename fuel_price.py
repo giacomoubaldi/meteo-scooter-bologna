@@ -116,6 +116,37 @@ def parse_api(data):
     }
 
 
+
+SNAPSHOT_ROOT = "https://raw.githubusercontent.com/slicevision/mappacarburanti-snapshot/main/snapshot/"
+
+
+def download_snapshot_json(url):
+    request = urllib.request.Request(
+        url + "?_refresh=" + str(time.time_ns()),
+        headers={"User-Agent": "MeteoScooterBologna/1.0",
+                 "Accept": "application/json",
+                 "Cache-Control": "no-cache",
+                 "Pragma": "no-cache"},
+    )
+    with urllib.request.urlopen(request, timeout=25) as response:
+        return json.load(response)
+
+
+def calculate_snapshot():
+    pointer = download_snapshot_json(SNAPSHOT_ROOT + "current.json")
+    generation = pointer.get("generation")
+    if not isinstance(generation, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}-[a-fA-F0-9]+", generation):
+        raise ValueError("Snapshot: generazione corrente non valida")
+    url = SNAPSHOT_ROOT + generation + "/citta/bologna.json"
+    data = download_snapshot_json(url)
+    if data.get("generation") != generation:
+        raise ValueError("Snapshot: generazione Bologna diversa dal puntatore")
+    result = parse_api(data)
+    result["source"] = "Mappa Carburanti snapshot GitHub (dati MIMIT)"
+    result["source_url"] = url
+    print(f"Snapshot corrente: {generation}; prezzo {result['price_eur_l']:.3f} €/L", flush=True)
+    return result
+
 def calculate():
     parser = TextExtractor()
     parser.feed(download())
@@ -161,12 +192,8 @@ def calculate():
 
 
 def main():
-    try:
-        data = parse_api(download_api())
-        print("Prezzo recuperato dalla API JSON", flush=True)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
-        print(f"API non utilizzabile: {exc}. Provo HTML come fallback.", flush=True)
-        data = calculate()
+    # Il sito stesso usa il repository snapshot, mentre HTML e API legacy sono fermi al 21 ottobre.
+    data = calculate_snapshot()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(data)
