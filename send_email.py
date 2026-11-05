@@ -89,9 +89,6 @@ def calendar_trips(day):
 
 def main():
     now = dt.datetime.now(TZ)
-    if os.getenv("SCHEDULED") == "true" and now.hour != 21:
-        print("Non sono le 21 in Italia: nessuna email.")
-        return
     tomorrow = (now + dt.timedelta(days=1)).date()
     regions, planned = calendar_trips(tomorrow)
     weekdays = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
