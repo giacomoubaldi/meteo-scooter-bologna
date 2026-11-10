@@ -1,7 +1,8 @@
 name: Meteo scooter serale
 on:
   schedule:
-    - cron: '0 20 * * *'
+    - cron: '17 21 * * *'
+      timezone: 'Europe/Rome'
   workflow_dispatch:
 jobs:
   mail:
