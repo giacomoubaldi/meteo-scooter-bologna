@@ -24,6 +24,7 @@ weekdays.forEach((name,i)=>{const o=document.createElement("option");o.value=i;o
 function persistCalendar(){localStorage.setItem(calKey,JSON.stringify(calendar));renderCalendar();queueSync()}
 function renderCalendar(){
  const root=$("calendar");root.replaceChildren();
+ const fullResults=document.createElement("div");fullResults.className="calendar-full-results";fullResults.hidden=true;
  weekdays.forEach((day,i)=>{
   const col=document.createElement("div");col.className="calendar-day";
   const title=document.createElement("h4");title.textContent=day;col.append(title);
@@ -40,9 +41,11 @@ function renderCalendar(){
   const trips=calendar.filter(t=>t.day===i).sort((a,b)=>a.time.localeCompare(b.time));
   if(trips.length){
    const button=document.createElement("button");button.type="button";button.textContent="🛵 Calcola il tragitto";button.style.cssText="width:100%;margin-top:10px;padding:9px 5px;font-size:12px";
-   const results=document.createElement("div");results.className="calendar-day-results";results.hidden=true;
+   const results=fullResults;
    button.onclick=async()=>{
-    if(!results.hidden){results.hidden=true;button.textContent="🛵 Calcola il tragitto";return}
+    if(!results.hidden&&results.dataset.day===String(i)){results.hidden=true;button.textContent="🛵 Calcola il tragitto";return}
+    root.querySelectorAll(".calendar-day button").forEach(b=>{if(b.textContent==="🔼 Nascondi tragitti")b.textContent="🛵 Calcola il tragitto"});
+    results.dataset.day=String(i);
     results.hidden=false;results.replaceChildren();button.disabled=true;button.textContent="⏳ Calcolo…";
     try{
      const today=new Date(),offset=(i-(today.getDay()+6)%7+7)%7;
@@ -58,10 +61,11 @@ function renderCalendar(){
      }
     }finally{button.disabled=false;button.textContent="🔼 Nascondi tragitti"}
    };
-   col.append(button,results);
+   col.append(button);
   }
   root.append(col);
  });
+ root.after(fullResults);
 }
 
 const weeklyRouteCache=new Map();
