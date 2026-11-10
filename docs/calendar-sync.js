@@ -36,7 +36,31 @@ function renderCalendar(){
    };
    const remove=document.createElement("button");remove.textContent="×";remove.title="Elimina";remove.onclick=()=>{calendar=calendar.filter(x=>x.id!==t.id);persistCalendar()};
    card.append(edit,remove);col.append(card);
-  });root.append(col);
+  });
+  const trips=calendar.filter(t=>t.day===i).sort((a,b)=>a.time.localeCompare(b.time));
+  if(trips.length){
+   const button=document.createElement("button");button.type="button";button.textContent="🛵 Calcola il tragitto";button.style.cssText="width:100%;margin-top:10px;padding:9px 5px;font-size:12px";
+   const results=document.createElement("div");results.className="calendar-day-results";results.hidden=true;
+   button.onclick=async()=>{
+    if(!results.hidden){results.hidden=true;button.textContent="🛵 Calcola il tragitto";return}
+    results.hidden=false;results.replaceChildren();button.disabled=true;button.textContent="⏳ Calcolo…";
+    try{
+     const today=new Date(),offset=(i-(today.getDay()+6)%7+7)%7;
+     const target=new Date(today.getFullYear(),today.getMonth(),today.getDate()+offset);
+     const date=target.getFullYear()+"-"+String(target.getMonth()+1).padStart(2,"0")+"-"+String(target.getDate()).padStart(2,"0");
+     const heading=document.createElement("p");heading.textContent="📅 "+target.toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"});results.append(heading);
+     for(const trip of trips){
+      const section=document.createElement("section");section.className="calendar-route-result";
+      const title=document.createElement("h4");title.textContent=trip.time+" · "+trip.from+" → "+trip.to;
+      const out=document.createElement("div");section.append(title,out);results.append(section);
+      if(!regions[trip.from]||!regions[trip.to]){out.textContent="Tappa non disponibile";continue}
+      await calculateScooterTrip(trip.from,trip.to,date,trip.time,out);
+     }
+    }finally{button.disabled=false;button.textContent="🔼 Nascondi tragitti"}
+   };
+   col.append(button,results);
+  }
+  root.append(col);
  });
 }
 
