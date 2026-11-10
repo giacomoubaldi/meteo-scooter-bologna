@@ -89,7 +89,7 @@ def calendar_trips(day):
 
 def main():
     now = dt.datetime.now(TZ)
-    tomorrow = (now + dt.timedelta(days=1)).date()
+    tomorrow = now.date() if os.getenv('SCHEDULED', '').lower() == 'true' and now.hour < 12 else (now + dt.timedelta(days=1)).date()
     regions, planned = calendar_trips(tomorrow)
     weekdays = ("lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica")
     months = ("gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre")
