@@ -8,7 +8,7 @@ body{max-width:850px;margin:auto;padding:24px 16px}h1{font-size:2rem}
 label{display:block;margin:12px 0 5px}input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #53647e;background:#102039;color:white;width:100%;box-sizing:border-box}
 button{background:#2488c7;font-weight:bold;cursor:pointer;margin-top:16px}
 .actions{display:flex;gap:10px;align-items:stretch}.actions #go{flex:1}.favorite-actions .save-favorite{flex:1;margin-top:16px}.actions #swap{width:58px;flex:none;background:#304d6c;font-size:1.4rem}.save-favorite{background:#304d6c}.favorites{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.favorite-item{display:flex;align-items:center;gap:4px;max-width:100%}.favorite-item button{width:auto;margin:0;padding:9px 12px}.favorite-item .remove-favorite{background:#553447;padding:9px 11px}.favorite-dropdown{margin:14px 0}.favorite-dropdown summary{cursor:pointer;font-weight:600;padding:10px 12px;background:#102039;border:1px solid #53647e;border-radius:10px}.favorite-dropdown[open] summary{margin-bottom:10px}
-.calendar{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;overflow-x:auto;padding-bottom:10px}.calendar-day{min-width:110px;background:#102039;border-radius:10px;padding:8px}.calendar-day h4{margin:2px 0 10px}.calendar-trip{background:#265780;border-radius:8px;padding:7px;margin:6px 0;font-size:12px;overflow-wrap:anywhere}.calendar-trip button{width:auto;padding:4px 7px;margin:5px 3px 0 0;font-size:12px}.consumption-report{margin-top:14px;background:#102039;border:1px solid #53647e;border-radius:12px;padding:14px}.consumption-report table{width:100%;font-size:14px}.consumption-report td,.consumption-report th{padding:9px 5px}.consumption-report tfoot{font-weight:700;color:#9bdcff}.consumption-report .report-scroll{overflow-x:auto}.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;overflow-x:auto;padding-bottom:10px}.calendar-day{min-width:110px;background:#102039;border-radius:10px;padding:8px}.calendar-day h4{margin:2px 0 10px}.calendar-trip{background:#265780;border-radius:8px;padding:7px;margin:6px 0;font-size:12px;overflow-wrap:anywhere}.calendar-day-results{margin-top:10px}.calendar-route-result{padding:9px 0;border-top:1px solid #53647e;font-size:12px}.calendar-route-result table{font-size:11px}.calendar-route-result td,.calendar-route-result th{padding:5px 3px}.calendar-trip button{width:auto;padding:4px 7px;margin:5px 3px 0 0;font-size:12px}.consumption-report{margin-top:14px;background:#102039;border:1px solid #53647e;border-radius:12px;padding:14px}.consumption-report table{width:100%;font-size:14px}.consumption-report td,.consumption-report th{padding:9px 5px}.consumption-report tfoot{font-weight:700;color:#9bdcff}.consumption-report .report-scroll{overflow-x:auto}.saved-stops summary{cursor:pointer;font-size:1.5rem;font-weight:700;list-style-position:inside}.saved-stops[open] summary{margin-bottom:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}small{color:#b9cde0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid #41516a;vertical-align:middle}th{white-space:nowrap}.forecast-table{width:100%;overflow-x:auto}.forecast-table table{min-width:670px}.weather-cell{white-space:nowrap}.weather-icon{font-size:1.25rem;vertical-align:middle}.weather-short{display:none}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.card{padding:16px}.forecast-table table{min-width:0;font-size:12px}.forecast-table td,.forecast-table th{padding:8px 4px}.weather-full{display:none}.weather-short{display:inline}.weather-icon{font-size:1.1rem}.forecast-table th:nth-child(5){white-space:normal}}
 .commit-area{margin:14px 0 20px}.commit-area button{margin-top:0}.commit-area p{font-size:.85rem;color:#b9cde0}dialog{border:1px solid #53647e;border-radius:18px;background:#17273d;color:#edf5ff;width:min(440px,calc(100% - 36px));padding:24px;box-sizing:border-box}dialog::backdrop{background:#000a}.dialog-actions{display:flex;gap:10px}.dialog-actions button{flex:1}.dialog-actions #tokenCancel{background:#304d6c}#tokenError{color:#ffb3b3}</style></head><body>
@@ -249,14 +249,14 @@ async function loadBolognaFuel(){
  }
 }
 loadBolognaFuel();
-$("go").onclick=async()=>{
- let out=$("result");out.textContent="Calcolo percorso e previsioni…";
+async function calculateScooterTrip(from,to,date,time,out){
+ out.textContent="Calcolo percorso e previsioni…";
  try{
-  let a=await geo(regions[$("from").value]),b=await geo(regions[$("to").value]);
+  let a=await geo(regions[from]),b=await geo(regions[to]);
   let route=(await api("https://router.project-osrm.org/route/v1/driving/"+a[1]+","+a[0]+";"+b[1]+","+b[0]+"?overview=full&geometries=geojson","OSRM (calcolo percorso)")).routes[0];
   let coords=route.geometry.coordinates.map(x=>[x[1],x[0]]),points=[a,mid(coords),b];
   let duration=Math.max(3,route.distance/1000/25*60+3);
-  let base=Date.parse($("date").value+"T"+$("time").value+":00Z")/60000;
+  let base=Date.parse(date+"T"+time+":00Z")/60000;
   let first=new Date((base-30)*60000).toISOString().slice(0,10);
   let last=new Date((base+duration+30)*60000).toISOString().slice(0,10);
   let weather=await Promise.all(points.map(p=>api("https://api.open-meteo.com/v1/forecast?"+new URLSearchParams({
@@ -282,5 +282,6 @@ $("go").onclick=async()=>{
    +rows.map(x=>"<tr><td>"+x.name+"</td><td>"+x.time+"</td><td>"+weatherCell(x.nominal.code)+"</td><td>"+fmt(x.nominal.temp,1)+" °C</td><td>"+fmt(x.nominal.prob)+"%</td><td>"+fmt(x.nominal.rain,2)+" mm/h</td></tr>").join("")
    +"</table></div><p>Massimi con partenza ±30 min: "+fmt(prob)+"% probabilità, "+fmt(rain,2)+" mm/h pioggia, "+fmt(wind)+" km/h vento.</p><p><b>"+advice+"</b></p><p><b>👕 Come vestirsi in scooter:</b> "+clothingAdvice(minTemp,wind,rain,prob)+"</p>";
  }catch(e){out.textContent="Errore: "+e.message}
-};
-</script><script src="calendar-sync.js?v=20261104-7"></script></body></html>
+}
+$("go").onclick=()=>calculateScooterTrip($("from").value,$("to").value,$("date").value,$("time").value,$("result"));
+</script><script src="calendar-sync.js?v=20261110-1"></script></body></html>
