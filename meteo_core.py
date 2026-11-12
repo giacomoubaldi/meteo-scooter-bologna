@@ -2,6 +2,9 @@
 import datetime as dt
 import json
 import math
+import random
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from zoneinfo import ZoneInfo
@@ -14,9 +17,21 @@ REGIONS = {
 }
 
 def api(url):
+    """Retry transient network/API failures without hiding permanent errors."""
     request = urllib.request.Request(url, headers={"User-Agent": "MeteoScooterBologna/1.0 (personal weather app)"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    attempts = 5
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=25) as response:
+                return json.load(response)
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as error:
+            if isinstance(error, urllib.error.HTTPError) and error.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            if attempt == attempts - 1:
+                raise
+            delay = min(30, 2 ** attempt * 3) + random.uniform(0, 1)
+            print(f"Richiesta API fallita ({error}); nuovo tentativo {attempt + 2}/{attempts} tra {delay:.1f}s", flush=True)
+            time.sleep(delay)
 
 def geocode(address):
     params = urllib.parse.urlencode({"q": address, "format": "json", "limit": 1})
